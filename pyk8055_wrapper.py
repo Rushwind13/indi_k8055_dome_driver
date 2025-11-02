@@ -132,6 +132,9 @@ class k8055:
         Returns:
             1 if HIGH, 0 if LOW, -1 on error
         """
+        if not self.is_open:
+            raise K8055Error("Device not open")
+
         if not (1 <= Channel <= 5):
             return -1
 

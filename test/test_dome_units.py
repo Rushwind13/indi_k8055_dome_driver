@@ -118,6 +118,8 @@ class TestDomeRotation:
     def test_ccw_rotation_by_amount(self):
         """Test counter-clockwise rotation by specific amount."""
         # Mock the rotation to simulate movement
+        # NOTE: Current implementation passes negative amount to rotation()
+        # This is a known bug - rotation() only works for positive values
         with patch.object(self.dome, "rotation") as mock_rotation:
             self.dome.ccw(amount=90)
             # CCW rotation negates the amount

@@ -220,9 +220,7 @@ def main():
 
         print("\n" + "=" * 80)
         print("🎉 ALL INTEGRATION TESTS PASSED!")
-        print(
-            "✅ pyk8055_wrapper successfully updated with libk8055 naming conventions"
-        )
+        print("✅ pyk8055_wrapper successfully updated with libk8055 naming conventions")
         print("✅ Mock functionality works properly")
         print("✅ Compatible with existing dome.py")
         print("✅ Can run standalone")

@@ -31,37 +31,41 @@ def test_doc_scripts_can_import():
         print(f"  Testing imports in {py_file.name}...")
 
         # Create a minimal test script that just imports
-        test_script = f"""
+        test_script_template = """
 import sys
 import os
-sys.path.insert(0, r"{py_file.parent.parent}")
+sys.path.insert(0, r"{parent_dir}")
 
 # Try to import the script's main modules
 try:
     import pyk8055_wrapper
     print("✅ pyk8055_wrapper import successful")
 except ImportError as e:
-    print(f"❌ pyk8055_wrapper import failed: {{e}}")
+    print(f"❌ pyk8055_wrapper import failed: {e}")
     sys.exit(1)
 
 try:
     from config import load_config
     print("✅ config import successful")
 except ImportError as e:
-    print("⚠️  config import failed (might be expected): {{e}}")
+    print(f"⚠️  config import failed (might be expected): {e}")
 
 # Test that the file can be parsed without syntax errors
 try:
-    with open(r"{py_file}", "r") as f:
+    with open(r"{file_path}", "r") as f:
         code = f.read()
-    compile(code, r"{py_file}", "exec")
+    compile(code, r"{file_path}", "exec")
     print("✅ Script syntax is valid")
 except SyntaxError as e:
-    print(f"❌ Syntax error in script: {{e}}")
+    print(f"❌ Syntax error in script: {e}")
     sys.exit(1)
 
 print("✅ Import test completed successfully")
 """
+
+        test_script = test_script_template.format(
+            parent_dir=py_file.parent.parent, file_path=py_file
+        )
 
         # Run the test script
         with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as tmp:

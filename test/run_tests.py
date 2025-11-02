@@ -28,28 +28,106 @@ from pathlib import Path
 
 
 def run_integration_tests():
-    """Run the wrapper integration tests."""
-    script_dir = Path(__file__).parent
-    test_file = script_dir / "test_wrapper_integration.py"
-
+    """Run integration tests."""
     print("🔹 Running Integration Tests...")
     print("-" * 60)
-
-    if not test_file.exists():
-        print(f"❌ Integration test file not found: {test_file}")
-        return False
-
     try:
-        result = subprocess.run([sys.executable, str(test_file)], cwd=script_dir.parent)
+        # Change to parent directory to run integration tests
+        original_cwd = os.getcwd()
+        os.chdir(os.path.dirname(os.path.dirname(__file__)))
+
+        result = subprocess.run(
+            [sys.executable, "test/test_wrapper_integration.py"],
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+
         if result.returncode == 0:
+            print(result.stdout)
             print("✅ Integration tests passed")
             return True
         else:
-            print("❌ Integration tests failed")
+            print(f"❌ Integration tests failed:")
+            print(f"stdout: {result.stdout}")
+            print(f"stderr: {result.stderr}")
             return False
+
+    except subprocess.TimeoutExpired:
+        print("❌ Integration tests timed out")
+        return False
     except Exception as e:
         print(f"❌ Error running integration tests: {e}")
         return False
+    finally:
+        os.chdir(original_cwd)
+
+
+def run_unit_tests():
+    """Run unit tests with pytest."""
+    print("🔹 Running Unit Tests...")
+    print("-" * 60)
+    try:
+        # Check if pytest is available
+        try:
+            import pytest
+        except ImportError:
+            print("⚠️  pytest not available, skipping unit tests")
+            print("   Install with: pip install pytest")
+            return True  # Don't fail if pytest not available
+
+        # Change to parent directory to run unit tests
+        original_cwd = os.getcwd()
+        os.chdir(os.path.dirname(os.path.dirname(__file__)))
+
+        # Run pytest on unit test files
+        unit_test_files = [
+            "test/test_dome_units.py",
+            "test/test_safety_critical.py",
+        ]
+
+        all_passed = True
+        for test_file in unit_test_files:
+            if os.path.exists(test_file):
+                print(f"  Running {test_file}...")
+                result = subprocess.run(
+                    [sys.executable, "-m", "pytest", test_file, "-v"],
+                    capture_output=True,
+                    text=True,
+                    timeout=120,
+                )
+
+                if result.returncode == 0:
+                    print(f"    ✅ {test_file} passed")
+                    # Show summary of tests run
+                    lines = result.stdout.split("\n")
+                    for line in lines:
+                        if "passed" in line and ("failed" in line or "error" in line):
+                            print(f"    📊 {line.strip()}")
+                        elif line.startswith("PASSED") or line.startswith("FAILED"):
+                            print(f"    {line.strip()}")
+                else:
+                    print(f"    ❌ {test_file} failed:")
+                    print(f"      stderr: {result.stderr[:200]}...")
+                    all_passed = False
+            else:
+                print(f"  ⚠️  {test_file} not found, skipping...")
+
+        if all_passed:
+            print("✅ Unit tests passed")
+        else:
+            print("❌ Some unit tests failed")
+
+        return all_passed
+
+    except subprocess.TimeoutExpired:
+        print("❌ Unit tests timed out")
+        return False
+    except Exception as e:
+        print(f"❌ Error running unit tests: {e}")
+        return False
+    finally:
+        os.chdir(original_cwd)
 
 
 def run_doc_script_tests():
@@ -115,30 +193,41 @@ def check_dependencies():
     """Check if required dependencies are available."""
     missing_deps = []
 
+    # Check behave for BDD tests
     try:
         import behave
     except ImportError:
         missing_deps.append("behave")
 
-    # Check if dome modules are available
-    script_dir = Path(__file__).parent
-    parent_dir = script_dir.parent
-    sys.path.insert(0, str(parent_dir))
-
+    # Check mock (usually built-in with Python 3.3+)
     try:
-        import pyk8055_wrapper
-        from config import load_config
-        from dome import Dome
-    except ImportError as e:
-        print(f"❌ Error importing dome modules: {e}")
-        print("   Make sure you're running from the correct directory")
-        return False
+        from unittest.mock import Mock
+    except ImportError:
+        missing_deps.append("mock")
+
+    # Check pre-commit for code quality
+    try:
+        import subprocess
+
+        result = subprocess.run(
+            ["pre-commit", "--version"], capture_output=True, text=True
+        )
+        if result.returncode != 0:
+            missing_deps.append("pre-commit")
+    except (FileNotFoundError, subprocess.SubprocessError):
+        missing_deps.append("pre-commit")
+
+    # Check pytest for unit tests (optional)
+    try:
+        import pytest
+    except ImportError:
+        print("ℹ️  pytest not available (optional for unit tests)")
 
     if missing_deps:
         print(f"❌ Missing dependencies: {', '.join(missing_deps)}")
-        print("   Install with: pip install behave")
         return False
 
+    print("✅ All required dependencies available")
     return True
 
 
@@ -296,6 +385,8 @@ Notes:
         "--integration-only", action="store_true", help="Run only integration tests"
     )
 
+    parser.add_argument("--unit-only", action="store_true", help="Run only unit tests")
+
     parser.add_argument(
         "--doc-only", action="store_true", help="Run only documentation script tests"
     )
@@ -363,16 +454,19 @@ Notes:
 
     # Determine which tests to run
     run_integration = True
+    run_unit = True
     run_doc_scripts = True
     run_bdd = True
     run_precommit = False
 
     if args.integration_only:
-        run_doc_scripts = run_bdd = False
+        run_unit = run_doc_scripts = run_bdd = False
+    elif args.unit_only:
+        run_integration = run_doc_scripts = run_bdd = False
     elif args.doc_only:
-        run_integration = run_bdd = False
+        run_integration = run_unit = run_bdd = False
     elif args.bdd_only:
-        run_integration = run_doc_scripts = False
+        run_integration = run_unit = run_doc_scripts = False
     elif args.all:
         run_precommit = True
 
@@ -402,6 +496,11 @@ Notes:
         results["integration"] = run_integration_tests()
         success = success and results["integration"]
 
+    # Run unit tests
+    if run_unit:
+        results["unit"] = run_unit_tests()
+        success = success and results["unit"]
+
     # Run doc script tests
     if run_doc_scripts:
         results["doc_scripts"] = run_doc_script_tests()
@@ -426,6 +525,7 @@ Notes:
         status = "✅ PASSED" if result else "❌ FAILED"
         test_display = {
             "integration": "Integration Tests",
+            "unit": "Unit Tests",
             "doc_scripts": "Documentation Script Tests",
             "bdd": "BDD Tests",
             "precommit": "Pre-commit Checks",

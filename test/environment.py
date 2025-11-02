@@ -22,6 +22,9 @@ def before_all(context):
     test_mode = os.environ.get("DOME_TEST_MODE", "smoke").lower()
     context.test_mode = test_mode
 
+    # Initialize config attribute at the top level so it can be set in before_feature
+    context.config = None
+
     if test_mode == "smoke":
         print("🔹 RUNNING IN SMOKE TEST MODE")
         print("   - No real hardware operations")
@@ -45,23 +48,26 @@ def before_feature(context, feature):
     print(f"\n📋 FEATURE: {feature.name}")
     print("-" * 60)
 
-    # Load configuration based on test mode
-    from config import load_config
-
-    context.config = load_config()
-
-    # Set smoke test mode based on test_mode - flatten for compatibility with step files
-    if context.test_mode == "smoke":
-        context.config["smoke_test"] = True
-        context.config["testing"]["smoke_test"] = True
-    else:
-        context.config["smoke_test"] = False
-        context.config["testing"]["smoke_test"] = False
-
-    # Initialize test tracking
+    # Initialize test tracking first (before any potential errors)
     context.feature_start_time = time.time()
     context.scenarios_passed = 0
     context.scenarios_failed = 0
+
+    # Load configuration based on test mode
+    from config import load_config
+
+    # Load config (this should always succeed with defaults)
+    context.config = load_config()
+
+    # Set smoke test mode based on test_mode - flatten for compatibility with step files
+    if hasattr(context, "test_mode") and context.test_mode == "smoke":
+        context.config["smoke_test"] = True
+        if "testing" in context.config:
+            context.config["testing"]["smoke_test"] = True
+    else:
+        context.config["smoke_test"] = False
+        if "testing" in context.config:
+            context.config["testing"]["smoke_test"] = False
 
 
 def before_scenario(context, scenario):
@@ -117,14 +123,22 @@ def after_scenario(context, scenario):
 
 def after_feature(context, feature):
     """Cleanup after each feature."""
-    feature_duration = time.time() - context.feature_start_time
-    total_scenarios = context.scenarios_passed + context.scenarios_failed
+    # Safely handle case where feature_start_time might not be set
+    if hasattr(context, "feature_start_time"):
+        feature_duration = time.time() - context.feature_start_time
+    else:
+        feature_duration = 0.0
+
+    # Safely get scenario counts
+    scenarios_passed = getattr(context, "scenarios_passed", 0)
+    scenarios_failed = getattr(context, "scenarios_failed", 0)
+    total_scenarios = scenarios_passed + scenarios_failed
 
     print("-" * 60)
     print("📊 FEATURE SUMMARY:")
     print(f"   Total scenarios: {total_scenarios}")
-    print(f"   Passed: {context.scenarios_passed}")
-    print(f"   Failed: {context.scenarios_failed}")
+    print(f"   Passed: {scenarios_passed}")
+    print(f"   Failed: {scenarios_failed}")
     print(f"   Duration: {feature_duration:.2f}s")
     print("-" * 60)
 

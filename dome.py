@@ -202,11 +202,12 @@ class Dome:
         Read shutter limit switches
         Note: These are physical switches that stop motor power, not telemetry
         They indicate if shutter is at the physical limit positions
+
+        Returns:
+            dict: Dictionary with 'upper_limit' and 'lower_limit' analog values (0-255)
         """
-        upper_limit = (
-            self.dome.analog_in(self.UPPER) > 128
-        )  # Threshold for analog input
-        lower_limit = self.dome.analog_in(self.LOWER) > 128
+        upper_limit = self.dome.analog_in(self.UPPER)
+        lower_limit = self.dome.analog_in(self.LOWER)
         return {"upper_limit": upper_limit, "lower_limit": lower_limit}
 
     def shutter_open(self):

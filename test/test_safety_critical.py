@@ -373,12 +373,12 @@ class TestMotionSafety:
         """Test prevention of simultaneous conflicting operations."""
         # Set dome at home so shutter operations are allowed
         self.dome.is_home = True
-        
+
         # Start shutter opening
         self.dome.shutter_open()
         assert self.dome.is_opening
         assert not self.dome.is_closing
-        
+
         # Try to close while opening - should update state correctly
         self.dome.shutter_close()
         assert self.dome.is_closing

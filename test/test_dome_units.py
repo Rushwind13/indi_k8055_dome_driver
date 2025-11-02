@@ -133,8 +133,9 @@ class TestDomeRotation:
         """Test home position detection."""
         # Mock home switch reading - use the correct pin from config
         home_pin = self.dome.HOME  # This should be pin 2 from default config
-        self.dome.dome.k8055_device._digital_inputs[home_pin] = True  # Home switch active
-        
+        # Home switch active
+        self.dome.dome.k8055_device._digital_inputs[home_pin] = True
+
         # Manually trigger home detection to set is_home attribute
         # In real use, the home() method would set this
         self.dome.is_home = True

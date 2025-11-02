@@ -63,8 +63,12 @@ class Dome:
         # Configuration-based timing and calibration
         self.POLL = self.config["calibration"]["poll_interval"]
         self.position = 0.0
-        self.HOME_POS = self.config["calibration"]["home_position"]
-        self.TICKS_TO_DEG = self.config["calibration"]["ticks_to_degrees"]
+        self.HOME_POS = self.config["calibration"].get(
+            "home_position", 0.0
+        )  # Default to 0 if missing
+        self.TICKS_TO_DEG = self.config["calibration"].get(
+            "ticks_to_degrees", 1.0
+        )  # Default ratio
 
         # Shutter timing constants
         if self.config.get("testing", {}).get("smoke_test", False):
@@ -176,8 +180,17 @@ class Dome:
 
     # Safety and status check methods
     def isHome(self):
-        """Check if dome is at home position"""
-        return self.is_home
+        """Check if dome is at home position by reading home switch"""
+        try:
+            # Read the actual home switch state
+            home_switch_active = self.dome.digital_in(self.HOME)
+            if home_switch_active:
+                self.is_home = True
+            else:
+                self.is_home = False
+            return self.is_home
+        except Exception as e:
+            raise Exception(f"Hardware error reading home switch: {e}")
 
     def isClosed(self):
         """Check if shutter is closed"""
@@ -202,11 +215,12 @@ class Dome:
         Read shutter limit switches
         Note: These are physical switches that stop motor power, not telemetry
         They indicate if shutter is at the physical limit positions
+
+        Returns:
+            dict: Dictionary with 'upper_limit' and 'lower_limit' analog values (0-255)
         """
-        upper_limit = (
-            self.dome.analog_in(self.UPPER) > 128
-        )  # Threshold for analog input
-        lower_limit = self.dome.analog_in(self.LOWER) > 128
+        upper_limit = self.dome.analog_in(self.UPPER)
+        lower_limit = self.dome.analog_in(self.LOWER)
         return {"upper_limit": upper_limit, "lower_limit": lower_limit}
 
     def shutter_open(self):
@@ -218,6 +232,11 @@ class Dome:
         if not self.isHome():
             print("ERROR: Cannot operate shutter - dome is not at home position")
             return False
+
+        if self.is_opening or self.is_closing:
+            print("ERROR: Shutter operation already in progress")
+            return False
+
         print("Sending OPEN signal to shutter...")
         self.dome.digital_on(self.SHUTTER_MOVE)
         self.dome.digital_off(self.SHUTTER_DIR)  # Direction for opening
@@ -234,12 +253,26 @@ class Dome:
         if not self.isHome():
             print("ERROR: Cannot operate shutter - dome is not at home position")
             return False
+
+        if self.is_opening or self.is_closing:
+            print("ERROR: Shutter operation already in progress")
+            return False
+
         print("Sending CLOSE signal to shutter...")
         self.dome.digital_on(self.SHUTTER_MOVE)
         self.dome.digital_on(self.SHUTTER_DIR)  # Direction for closing
         self.is_closing = True
         self.is_opening = False
         return True
+
+    def rotation_stop(self):
+        """
+        Stop dome rotation (emergency stop)
+        """
+        print("Stopping dome rotation...")
+        self.dome.digital_off(self.DOME_ROTATE)
+        self.is_turning = False
+        print("Dome rotation stopped.")
 
     def shutter_stop(self):
         """

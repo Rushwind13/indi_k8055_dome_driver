@@ -76,6 +76,14 @@ def step_dome_at_known_position(context):
     context.start_position = 0
 
 
+@given("the dome is at azimuth {azimuth:d} degrees")
+def step_set_dome_azimuth(context, azimuth):
+    _ensure_dome(context)
+    # set the logical position for the dome in smoke/mock mode
+    _set_pos(context, azimuth % 360)
+    context.start_position = azimuth % 360
+
+
 @when("I rotate the dome clockwise by {degrees:d} degrees")
 def step_rotate_cw(context, degrees):
     _ensure_dome(context)

@@ -250,8 +250,9 @@ class TestConfigurationValidation:
                 "shutter_direction": 4,
             },
             "calibration": {
-                # Simulate emergency stop using the public API
-                self.dome.rotation_stop()
+                "poll_interval": 0.1,
+                "home_position": 0.0,
+                "ticks_to_degrees": 1.0,
             },
             "hardware": {"mock_mode": True, "device_port": 0},
             "testing": {"smoke_test": True, "smoke_test_timeout": 0.1},

@@ -171,7 +171,29 @@ def step_operation_complete_success(context):
         smoke_mode = True
 
     if smoke_mode:
-        return
+        # In smoke mode require the operation is no longer in-flight and
+        # that the shutter reached a terminal or error state. Allow the
+        # scenario to have been rejected (dome not at home) or marked as
+        # failed via context flags.
+        if getattr(context, "shutter_command_rejected", False):
+            return
+
+        # Ensure no movement is active
+        assert not getattr(context.dome, "is_opening", False) and not getattr(
+            context.dome, "is_closing", False
+        ), "Shutter operation still in progress"
+
+        # Accept terminal positions or an explicitly unknown/error state
+        pos = getattr(context.dome, "shutter_position", None)
+        if pos in ("open", "closed", "unknown"):
+            return
+
+        errs = getattr(context, "errors", [])
+        if errs:
+            return
+
+        # If none of the above hold, fail the check
+        assert False, f"Unexpected final shutter state: pos={pos} errors={errs}"
 
     # Non-smoke (more strict) checks below: if operation explicitly failed
     # assert errors were recorded; otherwise accept an explicit final state

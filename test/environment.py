@@ -99,62 +99,87 @@ def before_scenario(context, scenario):
 
 def after_scenario(context, scenario):
     """Cleanup after each scenario."""
-    scenario_duration = time.time() - context.scenario_start_time
+    try:
+        # Be defensive: some setup failures may not set scenario_start_time
+        scenario_start = getattr(context, "scenario_start_time", None)
+        if scenario_start is None:
+            scenario_duration = 0.0
+        else:
+            scenario_duration = time.time() - scenario_start
 
-    if scenario.status == "passed":
-        context.scenarios_passed += 1
-        status_icon = "✅"
-        status_text = "PASSED"
-    else:
-        context.scenarios_failed += 1
-        status_icon = "❌"
-        status_text = "FAILED"
+        if scenario.status == "passed":
+            context.scenarios_passed = getattr(context, "scenarios_passed", 0) + 1
+            status_icon = "✅"
+            status_text = "PASSED"
+        else:
+            context.scenarios_failed = getattr(context, "scenarios_failed", 0) + 1
+            status_icon = "❌"
+            status_text = "FAILED"
 
-    print(f"{status_icon} {status_text} in {scenario_duration:.2f}s")
+        print(f"{status_icon} {status_text} in {scenario_duration:.2f}s")
 
-    # Cleanup dome state if needed
-    if hasattr(context, "dome") and context.test_mode == "hardware":
-        try:
-            # In hardware mode, ensure safe state
-            if hasattr(context.dome, "emergency_stop"):
-                context.dome.emergency_stop()
-        except Exception as e:
-            print(f"⚠️  Cleanup warning: {e}")
+        # Cleanup dome state if needed (only for hardware mode)
+        if (
+            hasattr(context, "dome")
+            and getattr(context, "test_mode", "smoke") == "hardware"
+        ):
+            try:
+                # In hardware mode, ensure safe state
+                if hasattr(context.dome, "emergency_stop"):
+                    context.dome.emergency_stop()
+            except Exception as e:
+                print(f"⚠️  Cleanup warning: {e}")
+    except Exception as e:
+        # Ensure cleanup errors do not crash the reporter; report and continue
+        print(f"⚠️  after_scenario encountered an exception: {e}")
 
 
 def after_feature(context, feature):
     """Cleanup after each feature."""
-    # Safely handle case where feature_start_time might not be set
-    if hasattr(context, "feature_start_time"):
-        feature_duration = time.time() - context.feature_start_time
-    else:
-        feature_duration = 0.0
+    try:
+        # Safely handle case where feature_start_time might not be set
+        if hasattr(context, "feature_start_time"):
+            feature_duration = time.time() - context.feature_start_time
+        else:
+            feature_duration = 0.0
 
-    # Safely get scenario counts
-    scenarios_passed = getattr(context, "scenarios_passed", 0)
-    scenarios_failed = getattr(context, "scenarios_failed", 0)
-    total_scenarios = scenarios_passed + scenarios_failed
+        # Safely get scenario counts
+        scenarios_passed = getattr(context, "scenarios_passed", 0)
+        scenarios_failed = getattr(context, "scenarios_failed", 0)
+        total_scenarios = scenarios_passed + scenarios_failed
 
-    print("-" * 60)
-    print("📊 FEATURE SUMMARY:")
-    print(f"   Total scenarios: {total_scenarios}")
-    print(f"   Passed: {scenarios_passed}")
-    print(f"   Failed: {scenarios_failed}")
-    print(f"   Duration: {feature_duration:.2f}s")
-    print("-" * 60)
+        print("-" * 60)
+        print("📊 FEATURE SUMMARY:")
+        print(f"   Total scenarios: {total_scenarios}")
+        print(f"   Passed: {scenarios_passed}")
+        print(f"   Failed: {scenarios_failed}")
+        print(f"   Duration: {feature_duration:.2f}s")
+        print("-" * 60)
+    except Exception as e:
+        # Ensure hook errors are visible and do not crash behave silently
+        import traceback
+
+        print(f"⚠️  after_feature raised an exception: {e}")
+        traceback.print_exc()
 
 
 def after_all(context):
     """Cleanup after all tests."""
-    print("\n" + "=" * 80)
-    print("🏁 TEST SUITE COMPLETED")
+    try:
+        print("\n" + "=" * 80)
+        print("🏁 TEST SUITE COMPLETED")
 
-    if context.test_mode == "smoke":
-        print("🔹 Smoke test mode - No hardware affected")
-    else:
-        print("⚡ Hardware test mode - Check dome status")
+        if getattr(context, "test_mode", "smoke") == "smoke":
+            print("🔹 Smoke test mode - No hardware affected")
+        else:
+            print("⚡ Hardware test mode - Check dome status")
 
-    print("=" * 80)
+        print("=" * 80)
+    except Exception as e:
+        import traceback
+
+        print(f"⚠️  after_all raised an exception: {e}")
+        traceback.print_exc()
 
 
 def add_test_attributes(dome):

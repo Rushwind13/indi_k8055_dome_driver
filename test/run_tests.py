@@ -391,7 +391,14 @@ Notes:
         "--integration-only", action="store_true", help="Run only integration tests"
     )
 
-    parser.add_argument("--unit-only", action="store_true", help="Run only unit tests")
+    # Support both `--unit` (convenience) and `--unit-only` for compatibility
+    parser.add_argument(
+        "--unit",
+        "--unit-only",
+        dest="unit_only",
+        action="store_true",
+        help="Run only unit tests (alias: --unit)",
+    )
 
     parser.add_argument(
         "--doc-only", action="store_true", help="Run only documentation script tests"
@@ -440,6 +447,14 @@ Notes:
         help="Create requirements.txt for test dependencies",
     )
 
+    # Non-interactive/confirmation helper
+    parser.add_argument(
+        "--yes",
+        "-y",
+        action="store_true",
+        help="Assume yes for interactive prompts (useful for CI/automation)",
+    )
+
     args = parser.parse_args()
 
     # Handle special commands
@@ -484,11 +499,28 @@ Notes:
         print("⚠️  Ensure the dome is properly set up and safe to operate.")
         print("⚠️  " + "=" * 70)
 
-        response = input("⚠️  Continue with hardware tests? (yes/no): ").lower().strip()
-        if response not in ["yes", "y"]:
-            print("❌ Hardware tests cancelled")
-            sys.exit(0)
-        print()
+        # Allow automation to bypass the interactive prompt with --yes/-y
+        if not args.yes:
+            # If we're interactive, ask the user. Otherwise abort to avoid hanging.
+            if sys.stdin.isatty():
+                response = (
+                    input("⚠️  Continue with hardware tests? (yes/no): ")
+                    .lower()
+                    .strip()
+                )
+                if response not in ["yes", "y"]:
+                    print("❌ Hardware tests cancelled")
+                    sys.exit(0)
+                print()
+            else:
+                print(
+                    "❌ Non-interactive session and --yes/-y not provided. "
+                    "Aborting hardware tests."
+                )
+                sys.exit(2)
+        else:
+            print("ℹ️  --yes provided: proceeding with hardware tests")
+            print()
 
     # Run the selected test suites
     print("🔭 DOME CONTROL SYSTEM - COMPREHENSIVE TEST SUITE")

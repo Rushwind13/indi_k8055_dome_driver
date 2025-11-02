@@ -278,16 +278,12 @@ class TestShutterOperations:
 
         self.dome.dome.k8055_device.ReadDigitalChannel = mock_home_switch
 
-        # Mock shutter as closed initially
-        self.dome.is_closed = True
-        self.dome.is_open = False
-
-        # Test opening - shutter_open() starts operation but doesn't wait
+        # Start the open operation and capture the result
         result = self.dome.shutter_open()
+
         assert result is True  # Should succeed when at home
         assert self.dome.is_opening is True  # Should set opening flag
         assert self.dome.is_closing is False  # Should clear closing flag
-
         # Restore original method
         self.dome.dome.k8055_device.ReadDigitalChannel = original_method
 
@@ -312,7 +308,6 @@ class TestShutterOperations:
         assert result is True  # Should succeed when at home
         assert self.dome.is_closing is True  # Should set closing flag
         assert self.dome.is_opening is False  # Should clear opening flag
-
         # Restore original method
         self.dome.dome.k8055_device.ReadDigitalChannel = original_method
 

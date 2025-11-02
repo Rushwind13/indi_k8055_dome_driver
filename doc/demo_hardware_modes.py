@@ -10,11 +10,12 @@ The wrapper automatically detects what's available and adapts accordingly.
 """
 
 import os
+import platform
 import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-import pyk8055_wrapper
+import pyk8055_wrapper  # noqa: E402
 
 
 def demo_mock_mode():
@@ -104,29 +105,6 @@ def demo_dome_configuration():
     # Development configuration (Mock mode)
     print("1. DEVELOPMENT/TESTING CONFIGURATION:")
     print("   File: dome_config.json")
-    development_config = {
-        "hardware": {"mock_mode": True, "device_port": 0},  # 🔹 Enable mock mode
-        "testing": {
-            "smoke_test": True,  # 🔹 Enable fast testing
-            "smoke_test_timeout": 3.0,
-        },
-        "pins": {
-            "encoder_a": 1,
-            "encoder_b": 2,
-            "home_switch": 3,
-            "shutter_upper_limit": 1,
-            "shutter_lower_limit": 2,
-            "dome_rotate": 1,
-            "dome_direction": 2,
-            "shutter_move": 3,
-            "shutter_direction": 4,
-        },
-        "calibration": {
-            "poll_interval": 0.1,  # 🔹 Fast polling for testing
-            "home_position": 0.0,
-            "ticks_to_degrees": 1.0,
-        },
-    }
 
     print("   {")
     print('     "hardware": {')
@@ -185,17 +163,15 @@ def demo_environment_detection():
 
     def detect_hardware_environment():
         """Detect if we're on a system with K8055 hardware capabilities."""
-        import os
-        import platform
-
         # Check if we're on Raspberry Pi
         is_raspberry_pi = False
         try:
             with open("/proc/cpuinfo", "r") as f:
                 cpuinfo = f.read()
                 is_raspberry_pi = "Raspberry Pi" in cpuinfo
-        except:
-            pass
+        except Exception:
+            # File not found or permission error
+            is_raspberry_pi = False
 
         # Check if libk8055 is available
         has_libk8055 = False
@@ -203,8 +179,9 @@ def demo_environment_detection():
             # This would try to import or detect the actual libk8055 library
             # For demo purposes, we'll just check platform
             has_libk8055 = platform.system() == "Linux" and is_raspberry_pi
-        except:
-            pass
+        except Exception:
+            # Import or detection failed
+            has_libk8055 = False
 
         # Check if we're in a development environment
         is_development = platform.system() == "Darwin"  # macOS

@@ -141,12 +141,14 @@ def test_doc_scripts_can_run():
                 # Check if it's just a demo/example that exits with non-zero but works
                 if "demo" in test_case["file"] or "example" in test_case["file"]:
                     print(
-                        f"    ⚠️  {test_case['file']} exited with code {result.returncode} (might be normal for demo)"
+                        f"    ⚠️  {test_case['file']} exited with code "
+                        f"{result.returncode} (might be normal for demo)"
                     )
                     print(f"    Output preview: {result.stdout[:200]}...")
                 else:
                     print(
-                        f"    ❌ {test_case['file']} failed with exit code {result.returncode}"
+                        f"    ❌ {test_case['file']} failed with exit code "
+                        f"{result.returncode}"
                     )
                     print(f"      stderr: {result.stderr[:200]}...")
                     raise AssertionError(
@@ -155,7 +157,8 @@ def test_doc_scripts_can_run():
 
         except subprocess.TimeoutExpired:
             print(
-                f"    ⚠️  {test_case['file']} timed out (might be normal for interactive demos)"
+                f"    ⚠️  {test_case['file']} timed out "
+                f"(might be normal for interactive demos)"
             )
         except Exception as e:
             print(f"    ❌ Error running {test_case['file']}: {e}")

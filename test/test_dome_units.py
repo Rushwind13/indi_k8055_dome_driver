@@ -11,13 +11,13 @@ import sys
 import time
 from unittest.mock import MagicMock, Mock, patch
 
-import pytest
-
 # Add parent directory to path for imports
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-import dome
-import pyk8055_wrapper
+import pytest  # noqa: E402
+
+import dome  # noqa: E402
+import pyk8055_wrapper  # noqa: E402
 
 
 class TestDomeInitialization:
@@ -110,8 +110,6 @@ class TestDomeRotation:
 
     def test_cw_rotation_by_amount(self):
         """Test clockwise rotation by specific amount."""
-        initial_pos = self.dome.get_pos()
-
         # Mock the rotation to simulate movement
         with patch.object(self.dome, "rotation") as mock_rotation:
             self.dome.cw(amount=90)
@@ -119,8 +117,6 @@ class TestDomeRotation:
 
     def test_ccw_rotation_by_amount(self):
         """Test counter-clockwise rotation by specific amount."""
-        initial_pos = self.dome.get_pos()
-
         # Mock the rotation to simulate movement
         with patch.object(self.dome, "rotation") as mock_rotation:
             self.dome.ccw(amount=90)
@@ -136,10 +132,10 @@ class TestDomeRotation:
         """Test home position detection."""
         # Mock home switch reading
         self.dome.dome.k8055_device._digital_inputs[3] = True  # Home switch active
-        assert self.dome.isHome() == True
+        assert self.dome.isHome() is True
 
-        self.dome.dome.k8055_device._digital_inputs[3] = False  # Home switch inactive
-        assert self.dome.isHome() == False
+        self.dome.dome.k8055_device._digital_inputs[3] = False
+        assert self.dome.isHome() is False
 
 
 class TestDomeCounters:
@@ -284,11 +280,11 @@ class TestShutterOperations:
         """Test shutter status detection methods."""
         # Test closed detection
         self.dome.is_closed = True
-        assert self.dome.isClosed() == True
+        assert self.dome.isClosed() is True
 
         # Test open detection
         self.dome.is_open = True
-        assert self.dome.isOpen() == True
+        assert self.dome.isOpen() is True
 
 
 class TestErrorHandling:
@@ -358,7 +354,7 @@ class TestErrorHandling:
         # Should timeout quickly in smoke test mode
         with patch("time.time", side_effect=lambda: start_time + 10):
             # This should timeout because of smoke test timeout
-            result = test_dome.wait_for_shutter_operation("test")
+            test_dome.wait_for_shutter_operation("test")
             # In smoke test mode, this completes quickly
 
 

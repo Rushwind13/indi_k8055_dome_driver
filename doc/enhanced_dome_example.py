@@ -6,14 +6,15 @@ This shows how to modify dome.py to automatically handle both hardware
 and mock modes with graceful fallback.
 """
 
+import importlib.util
 import os
 import platform
 import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-import pyk8055_wrapper
-from config import load_config
+import pyk8055_wrapper  # noqa: E402
+from config import load_config  # noqa: E402
 
 
 class EnhancedDome:
@@ -88,7 +89,8 @@ class EnhancedDome:
                 self.dome = pyk8055_wrapper.device(port=device_port, mock=True)
             else:
                 print(
-                    "Environment detection: Production system - attempting hardware connection..."
+                    "Environment detection: Production system - "
+                    "attempting hardware connection..."
                 )
                 try:
                     self.dome = pyk8055_wrapper.device(port=device_port, mock=False)
@@ -122,18 +124,18 @@ class EnhancedDome:
                 with open("/proc/cpuinfo", "r") as f:
                     if "Raspberry Pi" in f.read():
                         return False  # Raspberry Pi = production
-            except:
+            except Exception:  # nosec B110
+                # File not found or permission error - expected on non-RPi systems
                 pass
 
             # Check if libk8055 is available
             try:
                 # This would check for actual libk8055 installation
-                import importlib.util
-
                 spec = importlib.util.find_spec("pyk8055")
                 if spec is not None:
                     return False  # libk8055 available = production
-            except:
+            except Exception:  # nosec B110
+                # Import or detection failed - expected when libk8055 not installed
                 pass
 
         # Default to mock mode for safety

@@ -48,7 +48,7 @@ def run_integration_tests():
             print("✅ Integration tests passed")
             return True
         else:
-            print(f"❌ Integration tests failed:")
+            print("❌ Integration tests failed:")
             print(f"stdout: {result.stdout}")
             print(f"stderr: {result.stderr}")
             return False

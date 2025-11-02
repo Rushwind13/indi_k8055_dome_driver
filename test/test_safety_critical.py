@@ -12,13 +12,13 @@ import threading
 import time
 from unittest.mock import MagicMock, Mock, patch
 
-import pytest
-
 # Add parent directory to path for imports
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-import dome
-import pyk8055_wrapper
+import pytest  # noqa: E402
+
+import dome  # noqa: E402
+import pyk8055_wrapper  # noqa: E402
 
 
 class TestEmergencyStop:
@@ -155,12 +155,9 @@ class TestHardwareFailures:
 
         # Should handle timeout gracefully
         # In real implementation, this would have timeout logic
-        start_time = time.time()
         try:
-            result = self.dome.isHome()
-            elapsed = time.time() - start_time
+            self.dome.isHome()
             # Should complete eventually (in mock mode)
-            assert elapsed >= 0
         except Exception:
             # Acceptable to fail with timeout
             pass
@@ -171,11 +168,12 @@ class TestHardwareFailures:
         self.dome.dome.k8055_device.ReadCounter = Mock(return_value=-1)
 
         # Should handle invalid encoder data
-        counters = self.dome.counter_read()
+        self.dome.counter_read()
         # In real implementation, this would validate counter values
 
     def test_limit_switch_failure(self):
         """Test handling of limit switch failures."""
+
         # Mock limit switches to return inconsistent data
         def inconsistent_analog(channel):
             if channel == 1:  # Upper limit
@@ -187,7 +185,7 @@ class TestHardwareFailures:
         self.dome.dome.k8055_device.ReadAnalogChannel = inconsistent_analog
 
         # Should handle invalid limit switch data
-        limits = self.dome.get_shutter_limits()
+        self.dome.get_shutter_limits()
         # Real implementation should validate and sanitize limit values
 
     def test_home_switch_stuck(self):
@@ -196,7 +194,7 @@ class TestHardwareFailures:
         self.dome.dome.k8055_device.ReadDigitalChannel = Mock(return_value=1)
 
         # Should detect that home switch is stuck
-        assert self.dome.isHome() == True
+        assert self.dome.isHome() is True
 
         # Real implementation should detect this as a problem
 
@@ -212,7 +210,7 @@ class TestHardwareFailures:
         # After time passes, counter should increment
         # If it doesn't, motor might be stalled
         time.sleep(0.1)
-        current_count = self.dome.dome.k8055_device.ReadCounter(1)
+        self.dome.dome.k8055_device.ReadCounter(1)
 
         # In real implementation, this would check for movement
 
@@ -354,7 +352,6 @@ class TestMotionSafety:
         """Test rotation timeout safety."""
         # Start rotation
         self.dome.is_turning = True
-        start_time = time.time()
 
         # In real implementation, should timeout after max_rotation_time
         # For now, test that timeout mechanism exists in concept
@@ -368,7 +365,6 @@ class TestMotionSafety:
 
         # Try to start another shutter operation
         # Real implementation should prevent this
-        initial_opening = self.dome.is_opening
         self.dome.is_closing = True  # Currently allows this
 
         # Should not allow both opening and closing simultaneously
@@ -439,6 +435,7 @@ class TestStateConsistency:
 
     def test_concurrent_access_safety(self):
         """Test thread safety for concurrent operations."""
+
         # This would test if multiple threads can safely access dome
         def rotate_dome():
             self.dome.cw(amount=10)

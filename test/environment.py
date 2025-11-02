@@ -77,6 +77,7 @@ def before_scenario(context, scenario):
     # Import dome modules
     try:
         from config import load_config
+
         from dome import Dome
 
         # Create dome instance

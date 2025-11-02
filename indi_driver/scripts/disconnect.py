@@ -1,19 +1,28 @@
 #!/usr/bin/env python3
 """
-INDI Dome Script
+INDI Dome Script: Disconnect
+Safely disconnects and stops all dome operations.
 """
 
 import os
 import sys
 
-sys.path.insert(
-    0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "lib")
-)
-
 
 def main():
+    sys.path.insert(
+        0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "lib")
+    )
+    from dome import Dome
+
     try:
-        # Disconnect doesn't need specific action
+        dome = Dome()
+        # Attempt graceful disconnect of underlying device if available
+        try:
+            dev = getattr(dome, "dome", None)
+            if dev is not None and hasattr(dev, "close"):
+                dev.close()
+        except Exception as e:
+            print(f"WARN: device close failed: {e}", file=sys.stderr)
         sys.exit(0)
     except Exception:
         sys.exit(0)  # Don't fail on disconnect

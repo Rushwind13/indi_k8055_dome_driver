@@ -140,8 +140,12 @@ class k8055:
 
         # Mock some realistic behavior for dome sensors
         if Channel == 3:  # Home switch
-            # Simulate home switch being triggered occasionally
-            result = int(time.time() % 30 < 2)  # Trigger for 2 seconds every 30
+            # If explicitly set in digital inputs, use that value
+            if self._digital_inputs[Channel]:
+                result = 1
+            else:
+                # Simulate home switch being triggered occasionally when not set
+                result = int(time.time() % 30 < 2)  # Trigger for 2s every 30s
         else:
             result = int(self._digital_inputs[Channel])
 

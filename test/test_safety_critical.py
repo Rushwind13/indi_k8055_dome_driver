@@ -139,12 +139,12 @@ class TestHardwareFailures:
         self.dome.dome.k8055_device.CloseDevice()
         assert not self.dome.dome.k8055_device.is_open
 
-        # In mock mode, operations still work (mock doesn't enforce is_open check)
-        # This tests that the system doesn't crash even if device state changes
-        result = self.dome.isHome()
-        assert isinstance(result, bool)
+        # Operations should fail gracefully with exceptions
+        with pytest.raises(Exception) as exc_info:
+            self.dome.isHome()
 
-        # Should not crash the application
+        # Verify the exception contains meaningful error information
+        assert "Hardware error reading home switch" in str(exc_info.value)
 
     def test_communication_timeout(self):
         """Test handling of communication timeouts."""
@@ -371,21 +371,23 @@ class TestMotionSafety:
 
     def test_simultaneous_operation_prevention(self):
         """Test prevention of simultaneous conflicting operations."""
-        # Set dome at home so shutter operations are allowed
-        self.dome.is_home = True
+        # Mock home switch to return True (dome at home position)
+        home_pin = self.dome.HOME
+        self.dome.dome.k8055_device._digital_inputs[home_pin] = True
 
         # Start shutter opening
-        self.dome.shutter_open()
+        result1 = self.dome.shutter_open()
+        assert result1 is True
         assert self.dome.is_opening
         assert not self.dome.is_closing
 
-        # Try to close while opening - should update state correctly
-        self.dome.shutter_close()
-        assert self.dome.is_closing
-        assert not self.dome.is_opening  # Opening should be cleared
+        # Try to close while opening - should be prevented by safety check
+        result2 = self.dome.shutter_close()
+        assert result2 is False  # Should fail due to operation in progress
 
-        # Verify only one operation can be active at a time
-        # The implementation correctly sets is_opening=False when starting close
+        # Verify the original operation is still active and no simultaneous operations
+        assert self.dome.is_opening  # Original operation still active
+        assert not self.dome.is_closing  # Second operation was prevented
         assert not (self.dome.is_opening and self.dome.is_closing)
 
     def test_shutter_limit_enforcement(self):

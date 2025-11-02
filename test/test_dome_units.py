@@ -134,16 +134,14 @@ class TestDomeRotation:
     def test_home_detection(self):
         """Test home position detection."""
         # Mock home switch reading - use the correct pin from config
-        home_pin = self.dome.HOME  # This should be pin 2 from default config
-        # Home switch active
-        self.dome.dome.k8055_device._digital_inputs[home_pin] = True
+        home_pin = self.dome.HOME  # This should be pin 3 from test config
 
-        # Manually trigger home detection to set is_home attribute
-        # In real use, the home() method would set this
-        self.dome.is_home = True
+        # Test home switch active
+        self.dome.dome.k8055_device._digital_inputs[home_pin] = True
         assert self.dome.isHome() is True
 
-        self.dome.is_home = False
+        # Test home switch inactive
+        self.dome.dome.k8055_device._digital_inputs[home_pin] = False
         assert self.dome.isHome() is False
 
 
@@ -256,7 +254,10 @@ class TestShutterOperations:
         # Mock shutter as closed initially and dome at home
         self.dome.is_closed = True
         self.dome.is_open = False
-        self.dome.is_home = True  # Shutter can only operate when at home
+
+        # Mock home switch to return True (dome at home position)
+        home_pin = self.dome.HOME
+        self.dome.dome.k8055_device._digital_inputs[home_pin] = True
 
         # Test opening - shutter_open should return True and set is_opening
         result = self.dome.shutter_open()
@@ -269,7 +270,10 @@ class TestShutterOperations:
         # Mock shutter as open initially and dome at home
         self.dome.is_open = True
         self.dome.is_closed = False
-        self.dome.is_home = True  # Shutter can only operate when at home
+
+        # Mock home switch to return True (dome at home position)
+        home_pin = self.dome.HOME
+        self.dome.dome.k8055_device._digital_inputs[home_pin] = True
 
         # Test closing - shutter_close should return True and set is_closing
         result = self.dome.shutter_close()

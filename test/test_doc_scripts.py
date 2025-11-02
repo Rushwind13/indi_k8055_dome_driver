@@ -41,14 +41,14 @@ try:
     import pyk8055_wrapper
     print("✅ pyk8055_wrapper import successful")
 except ImportError as e:
-    print(f"❌ pyk8055_wrapper import failed: {e}")
+    print("❌ pyk8055_wrapper import failed:", str(e))
     sys.exit(1)
 
 try:
     from config import load_config
     print("✅ config import successful")
 except ImportError as e:
-    print(f"⚠️  config import failed (might be expected): {e}")
+    print("⚠️  config import failed (might be expected):", str(e))
 
 # Test that the file can be parsed without syntax errors
 try:
@@ -57,7 +57,7 @@ try:
     compile(code, r"{file_path}", "exec")
     print("✅ Script syntax is valid")
 except SyntaxError as e:
-    print(f"❌ Syntax error in script: {e}")
+    print("❌ Syntax error in script:", str(e))
     sys.exit(1)
 
 print("✅ Import test completed successfully")

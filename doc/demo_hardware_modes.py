@@ -13,7 +13,9 @@ import os
 import platform
 import sys
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+# Ensure we can import the library modules after the repo reorganization
+# (puts indi_driver/lib on sys.path for doc/demo examples)
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "indi_driver", "lib"))
 
 import pyk8055_wrapper  # noqa: E402
 

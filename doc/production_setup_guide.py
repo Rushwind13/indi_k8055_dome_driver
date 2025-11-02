@@ -19,7 +19,8 @@ class ProductionK8055Wrapper:
     On Raspberry Pi, you would:
 
     1. Install libk8055: sudo apt-get install libk8055-dev
-    2. Build Python bindings: cd libk8055/src/pyk8055 && python setup.py build_ext --inplace
+    2. Build Python bindings: cd libk8055/src/pyk8055 && python
+       setup.py build_ext --inplace
     3. Import the real pyk8055 module
     """
 
@@ -53,9 +54,14 @@ class ProductionK8055Wrapper:
                 # This is what you would do on Raspberry Pi with libk8055:
 
                 # import pyk8055  # Real SWIG-generated module
-                # self._hardware_device = pyk8055.k8055(BoardAddress, debug=self.debug)
+                # self._hardware_device = pyk8055.k8055(
+                #     BoardAddress, debug=self.debug
+                # )
                 # self.is_open = self._hardware_device.IsOpen()
-                # self._log(f"✅ Connected to real K8055 hardware at address {BoardAddress}")
+                # self._log(
+                #     f"✅ Connected to real K8055 hardware "
+                #     f"at address {BoardAddress}"
+                # )
                 # return 0
 
                 # For demonstration, we simulate hardware not available

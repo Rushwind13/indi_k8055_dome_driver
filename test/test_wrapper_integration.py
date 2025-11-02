@@ -15,8 +15,8 @@ import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-import dome
-import pyk8055_wrapper
+import dome  # noqa: E402
+import pyk8055_wrapper  # noqa: E402
 
 
 def test_old_pyk8055_removed():
@@ -220,7 +220,9 @@ def main():
 
         print("\n" + "=" * 80)
         print("🎉 ALL INTEGRATION TESTS PASSED!")
-        print("✅ pyk8055_wrapper successfully updated with libk8055 naming conventions")
+        print(
+            "✅ pyk8055_wrapper successfully updated with libk8055 naming conventions"
+        )
         print("✅ Mock functionality works properly")
         print("✅ Compatible with existing dome.py")
         print("✅ Can run standalone")

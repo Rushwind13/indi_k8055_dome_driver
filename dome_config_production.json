@@ -1,0 +1,48 @@
+{
+  "_comment": "PRODUCTION CONFIGURATION - Use on Raspberry Pi with real K8055 hardware",
+  "description": "This configuration enables hardware mode for real dome operations",
+
+  "hardware": {
+    "mock_mode": false,
+    "device_port": 0,
+    "_comment": "mock_mode: false = requires real K8055 hardware and libk8055"
+  },
+
+  "testing": {
+    "smoke_test": false,
+    "smoke_test_timeout": 30.0,
+    "_comment": "smoke_test: false = full operation timeouts for real hardware"
+  },
+
+  "pins": {
+    "_comment": "Pin assignments for K8055 interface board - verify with your wiring",
+    "encoder_a": 1,
+    "encoder_b": 2,
+    "home_switch": 3,
+    "shutter_upper_limit": 1,
+    "shutter_lower_limit": 2,
+    "dome_rotate": 1,
+    "dome_direction": 2,
+    "shutter_move": 3,
+    "shutter_direction": 4
+  },
+
+  "calibration": {
+    "_comment": "MUST be calibrated for your specific dome installation",
+    "home_position": 225.0,
+    "ticks_to_degrees": 4.0,
+    "poll_interval": 0.5,
+    "_instructions": [
+      "home_position: Degrees from north where your home switch triggers",
+      "ticks_to_degrees: Encoder ticks per degree of dome rotation",
+      "poll_interval: How often to check sensors (seconds)"
+    ]
+  },
+
+  "safety": {
+    "_comment": "Production safety settings",
+    "max_rotation_time": 300,
+    "max_shutter_time": 60,
+    "emergency_stop_enabled": true
+  }
+}

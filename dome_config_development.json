@@ -1,0 +1,36 @@
+{
+  "_comment": "DEVELOPMENT CONFIGURATION - Use on Mac/Windows for testing",
+  "description": "This configuration enables mock mode for safe development and testing without real K8055 hardware",
+
+  "hardware": {
+    "mock_mode": true,
+    "device_port": 0,
+    "_comment": "mock_mode: true = no hardware required, safe for development"
+  },
+
+  "testing": {
+    "smoke_test": true,
+    "smoke_test_timeout": 3.0,
+    "_comment": "smoke_test: true = fast timeouts for quick testing"
+  },
+
+  "pins": {
+    "_comment": "Pin assignments for K8055 interface board",
+    "encoder_a": 1,
+    "encoder_b": 2,
+    "home_switch": 3,
+    "shutter_upper_limit": 1,
+    "shutter_lower_limit": 2,
+    "dome_rotate": 1,
+    "dome_direction": 2,
+    "shutter_move": 3,
+    "shutter_direction": 4
+  },
+
+  "calibration": {
+    "_comment": "Development values - not calibrated to real hardware",
+    "home_position": 0.0,
+    "ticks_to_degrees": 1.0,
+    "poll_interval": 0.1
+  }
+}

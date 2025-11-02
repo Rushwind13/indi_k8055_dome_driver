@@ -46,16 +46,17 @@ def before_feature(context, feature):
     print("-" * 60)
 
     # Load configuration based on test mode
+    from config import load_config
+
+    context.config = load_config()
+
+    # Set smoke test mode based on test_mode - flatten for compatibility with step files
     if context.test_mode == "smoke":
-        from config import load_config
-
-        context.config = load_config()
         context.config["smoke_test"] = True
+        context.config["testing"]["smoke_test"] = True
     else:
-        from config import load_config
-
-        context.config = load_config()
         context.config["smoke_test"] = False
+        context.config["testing"]["smoke_test"] = False
 
     # Initialize test tracking
     context.feature_start_time = time.time()

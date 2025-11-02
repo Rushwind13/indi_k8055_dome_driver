@@ -1,0 +1,34 @@
+# Development Dependencies for INDI Dome Driver
+# These packages are used for development, testing, and code quality
+
+# Code formatting and linting
+black>=22.0.0           # Python code formatter
+flake8>=5.0.0          # Python linter
+isort>=5.10.0          # Import sorter
+mypy>=0.991            # Static type checker
+
+# Pre-commit hooks
+pre-commit>=2.20.0     # Pre-commit hook framework
+
+# Testing and coverage
+pytest>=7.0.0          # Modern testing framework
+pytest-cov>=4.0.0      # Coverage reporting for pytest
+pytest-mock>=3.8.0     # Mocking plugin for pytest
+coverage>=6.0.0        # Coverage measurement
+
+# BDD Testing (already in test/requirements.txt, but duplicated for dev env)
+behave>=1.2.6          # BDD testing framework
+mock>=4.0.3            # Mocking utilities
+
+# Documentation
+sphinx>=5.0.0          # Documentation generator
+sphinx-rtd-theme>=1.0.0  # Read the Docs theme
+
+# Development utilities
+ipython>=8.0.0         # Enhanced Python shell
+jupyter>=1.0.0         # Jupyter notebooks for development
+pip-tools>=6.8.0       # Dependency management
+
+# Optional but recommended
+bandit>=1.7.0          # Security linting
+safety>=2.0.0          # Security vulnerability scanner

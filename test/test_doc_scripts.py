@@ -34,7 +34,10 @@ def test_doc_scripts_can_import():
         test_script_template = """
 import sys
 import os
+# Add project root and library path so doc scripts can import modules after
+# the reorganization (indi_driver/lib)
 sys.path.insert(0, r"{parent_dir}")
+sys.path.insert(0, os.path.join(r"{parent_dir}", "indi_driver", "lib"))
 
 # Try to import the script's main modules
 try:

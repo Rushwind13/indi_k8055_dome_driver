@@ -254,6 +254,12 @@ def run_behave_tests(args):
     env = os.environ.copy()
     env["DOME_TEST_MODE"] = args.mode
 
+    # Ensure behave process can import project modules in indi_driver/lib
+    # (some test steps import `config`, `dome`, etc.)
+    lib_path = str(script_dir.parent / "indi_driver" / "lib")
+    existing_py = env.get("PYTHONPATH", "")
+    env["PYTHONPATH"] = lib_path + (os.pathsep + existing_py if existing_py else "")
+
     # Build behave command
     cmd = ["python", "-m", "behave"]
 

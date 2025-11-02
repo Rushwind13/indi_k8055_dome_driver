@@ -6,7 +6,15 @@ Dome rotation and positioning tests.
 Tests dome rotation, home positioning, and encoder functionality
 """
 
-import dome
+import os
+import sys
+
+# Add lib path for imports
+sys.path.insert(
+    0, os.path.join(os.path.dirname(os.path.dirname(__file__)), "indi_driver", "lib")
+)
+
+import dome  # noqa: E402
 
 
 def test_init():

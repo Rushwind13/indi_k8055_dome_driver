@@ -12,7 +12,6 @@ import time
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 
 from behave import given, step, then, when
-
 from config import load_config
 from dome import Dome
 

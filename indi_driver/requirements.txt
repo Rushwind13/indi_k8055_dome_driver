@@ -1,0 +1,10 @@
+# INDI K8055 Dome Driver Dependencies
+# Minimal runtime requirements for the dome driver
+
+# No external dependencies required for mock mode
+# For production mode on Raspberry Pi, you need:
+# - libk8055-dev (system package)
+# - Python 3.8+
+
+# This driver is designed to work with Python standard library only
+# in mock mode for maximum compatibility and minimal deployment complexity

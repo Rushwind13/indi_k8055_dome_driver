@@ -13,7 +13,10 @@ This test verifies that:
 import os
 import sys
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+# Add indi_driver/lib directory to path for imports
+sys.path.insert(
+    0, os.path.join(os.path.dirname(os.path.dirname(__file__)), "indi_driver", "lib")
+)
 
 import dome  # noqa: E402
 import pyk8055_wrapper  # noqa: E402

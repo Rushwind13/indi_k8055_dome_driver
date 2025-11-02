@@ -1,0 +1,27 @@
+{
+    "_comment": "Smoke test configuration for quick testing without hardware delays",
+    "pins": {
+        "encoder_a": 1,
+        "encoder_b": 5,
+        "home_switch": 2,
+        "shutter_upper_limit": 1,
+        "shutter_lower_limit": 2,
+        "dome_rotate": 1,
+        "dome_direction": 2,
+        "shutter_move": 1,
+        "shutter_direction": 2
+    },
+    "calibration": {
+        "home_position": 225,
+        "ticks_to_degrees": 4.0,
+        "poll_interval": 0.1
+    },
+    "hardware": {
+        "mock_mode": true,
+        "device_port": 0
+    },
+    "testing": {
+        "smoke_test": true,
+        "smoke_test_timeout": 2.0
+    }
+}

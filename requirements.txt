@@ -1,0 +1,12 @@
+# Production Dependencies for INDI Dome Driver
+# Core dependencies required to run the dome control system
+
+# Testing framework (required for basic functionality)
+nose2>=0.15.1 # Updated from the deprecated 'nose' to its actively maintained successor
+
+# USB interface support (for K8055 board)
+# Note: Actual K8055 drivers are platform-specific and may require separate installation
+
+# Optional: Add specific versions for production stability
+# Example: requests>=2.32.3  # If HTTP communication is needed
+# Example: pyserial>=3.5     # If serial communication is needed

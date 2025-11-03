@@ -16,10 +16,9 @@ sys.path.insert(
     0, os.path.join(os.path.dirname(os.path.dirname(__file__)), "indi_driver", "lib")
 )
 
-import pytest  # noqa: E402
-
 import dome  # noqa: E402
 import pyk8055_wrapper  # noqa: E402
+import pytest  # noqa: E402
 
 
 class TestDomeInitialization:

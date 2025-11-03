@@ -18,7 +18,6 @@ if ROOT not in sys.path:
 
 from behave import given, then, when
 from config import load_config
-
 from dome import Dome
 
 

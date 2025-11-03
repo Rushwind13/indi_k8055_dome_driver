@@ -111,7 +111,6 @@ def test_dome_initialization():
         sys.path.insert(0, str(parent_dir))
 
         from config import load_config
-
         from dome import Dome
 
         # Load config with smoke test mode

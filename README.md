@@ -35,6 +35,7 @@ test/             # Comprehensive test suite
 
 1. **Install dependencies**:
    ```bash
+   ./setup_venv.sh
    pip install -r requirements.txt
    ```
 
@@ -86,13 +87,3 @@ python test/test_wrapper_integration.py
 4. Verify with test suite
 
 **This driver is production-ready and INDI-compliant.**
-
-## 🛠️ VS Code auto-approve (optional)
-
-This repo includes a workspace setting at `.vscode/settings.json` that pre-approves a safe set of terminal commands for Copilot Chat to run without prompts (e.g., running tests, fetching git, activating venv). Adjust or remove entries as needed.
-
-Where:
-- File: `.vscode/settings.json`
-- Key: `chat.tools.terminal.autoApprove`
-
-If you prefer manual approval, delete the key or set specific commands to `false`.

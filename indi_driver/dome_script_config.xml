@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<INDIDriver>
+    <Device name="K8055 Dome">
+        <Property name="Scripts">
+            <Element name="Script Folder">/home/pi/indi_k8055_dome_driver/indi_driver/scripts</Element>
+            <Element name="Connect Script">connect.py</Element>
+            <Element name="Disconnect Script">disconnect.py</Element>
+            <Element name="Get Status Script">status.py</Element>
+            <Element name="Open Shutter Script">open.py</Element>
+            <Element name="Close Shutter Script">close.py</Element>
+            <Element name="Park Script">park.py</Element>
+            <Element name="Unpark Script">unpark.py</Element>
+            <Element name="Goto Script">goto.py</Element>
+            <Element name="Move CW Script">move_cw.py</Element>
+            <Element name="Move CCW Script">move_ccw.py</Element>
+            <Element name="Abort Script">abort.py</Element>
+        </Property>
+    </Device>
+</INDIDriver>

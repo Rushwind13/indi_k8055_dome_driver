@@ -194,7 +194,7 @@ pip install behave
 #### "Import dome could not be resolved"
 Make sure you're running from the correct directory:
 ```bash
-cd indi_dome_driver
+cd indi_k8055_dome_driver
 python test/run_tests.py
 ```
 

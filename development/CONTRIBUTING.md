@@ -16,8 +16,8 @@ This software controls physical hardware that can cause injury or property damag
 ### 1. Fork and Clone
 ```bash
 # Fork the repository on GitHub, then:
-git clone https://github.com/YOUR_USERNAME/indi_dome_driver.git
-cd indi_dome_driver
+git clone https://github.com/YOUR_USERNAME/indi_k8055_dome_driver.git
+cd indi_k8055_dome_driver
 ```
 
 ### 2. Set Up Development Environment
@@ -207,7 +207,7 @@ make help               # Show all commands
 ## 🏗️ Project Structure
 
 ```
-indi_dome_driver/
+indi_k8055_dome_driver/
 ├── dome.py                 # Main dome control class
 ├── config.py               # Configuration management
 ├── pyk8055_wrapper.py      # Hardware interface wrapper

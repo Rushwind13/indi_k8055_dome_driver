@@ -44,21 +44,21 @@ class TestINDIScripts(unittest.TestCase):
         self.cwd = REPO_ROOT
         self._config_created = False
         self._config_path = os.path.join(self.cwd, "dome_config.json")
-        
+
         # Detect hardware mode from environment
         self.test_mode = os.environ.get("DOME_TEST_MODE", "smoke").lower()
         self.is_hardware_mode = self.test_mode == "hardware"
-        
+
         # Configure timeouts based on test mode
         if self.is_hardware_mode:
             self.script_timeout = 120  # 2 minutes for hardware operations
             self.movement_timeout = 180  # 3 minutes for movement operations
             print("⚡ Hardware mode detected - using extended timeouts")
         else:
-            self.script_timeout = 10   # 10 seconds for smoke tests
+            self.script_timeout = 10  # 10 seconds for smoke tests
             self.movement_timeout = 15  # 15 seconds max for smoke tests
             print("🔹 Smoke mode detected - using short timeouts")
-        
+
         if not os.path.exists(self._config_path):
             config_content = self._create_test_config()
             import json
@@ -66,7 +66,7 @@ class TestINDIScripts(unittest.TestCase):
             with open(self._config_path, "w") as f:
                 json.dump(config_content, f)
             self._config_created = True
-            
+
         self.required_scripts = [
             "connect.py",
             "disconnect.py",
@@ -104,50 +104,69 @@ class TestINDIScripts(unittest.TestCase):
                 "smoke_test_timeout": 1.0 if not self.is_hardware_mode else 30.0,
             },
         }
-        
+
         if self.is_hardware_mode:
             # Hardware mode configuration
-            base_config["hardware"] = {
-                "mock_mode": False,
-                "device_port": 0
-            }
+            base_config["hardware"] = {"mock_mode": False, "device_port": 0}
             base_config["testing"]["smoke_test"] = False
             base_config["testing"]["hardware_mode"] = True
             print("   🔧 Created hardware mode configuration")
         else:
             # Smoke test configuration
-            base_config["hardware"] = {
-                "mock_mode": True,
-                "device_port": 0
-            }
+            base_config["hardware"] = {"mock_mode": True, "device_port": 0}
             base_config["testing"]["smoke_test"] = True
             base_config["testing"]["hardware_mode"] = False
             print("   🔧 Created smoke test configuration")
-            
+
         return base_config
 
     def tearDown(self):
-        # Clean up temporary config if we created it
+        # Enhanced cleanup for hardware mode
         try:
+            # Execute safety cleanup for hardware mode
+            if self.is_hardware_mode:
+                print("🛑 Executing hardware safety cleanup...")
+                abort_script = os.path.join(self.scripts_dir, "abort.py")
+                if os.path.exists(abort_script):
+                    try:
+                        subprocess.run(
+                            ["python3", abort_script],
+                            timeout=5,
+                            env=self.env,
+                            cwd=self.cwd,
+                        )
+                        print("   ✅ Emergency stop executed")
+                    except Exception as e:
+                        print(f"   ⚠️ Emergency stop warning: {e}")
+
+            # Clean up temporary config if we created it
             if getattr(self, "_config_created", False) and os.path.exists(
                 self._config_path
             ):
                 os.remove(self._config_path)
-        except Exception:
-            pass
-        self.required_scripts = [
-            "connect.py",
-            "disconnect.py",
-            "status.py",
-            "open.py",
-            "close.py",
-            "park.py",
-            "unpark.py",
-            "goto.py",
-            "move_cw.py",
-            "move_ccw.py",
-            "abort.py",
-        ]
+        except Exception as e:
+            print(f"⚠️ Warning during test cleanup: {e}")
+
+    def test_aaa_basic_config_validation(self):
+        """Basic configuration validation using existing infrastructure."""
+        print("\n🔍 Running basic configuration validation...")
+
+        # Use existing config loading infrastructure
+        from config import load_config
+
+        config = load_config()
+
+        # Basic validation for hardware mode only
+        if self.is_hardware_mode:
+            self.assertIn("hardware", config, "Hardware section required")
+            hardware = config["hardware"]
+            self.assertFalse(
+                hardware.get("mock_mode", True),
+                "Hardware mode requires mock_mode: false",
+            )
+            print("   ✅ Hardware configuration validation passed")
+        else:
+            print("   ✅ Mock mode - no additional validation needed")
 
     def test_all_scripts_exist(self):
         """Test that all 11 required INDI scripts exist."""
@@ -293,13 +312,19 @@ class TestINDIScripts(unittest.TestCase):
             self.assertIn(
                 result.returncode, [0, 1], f"Park returned {result.returncode}"
             )
-            
+
             if self.is_hardware_mode:
-                print(f"   ⚡ Hardware park operation completed in {self.movement_timeout}s timeout")
-                
+                print(
+                    "   ⚡ Hardware park operation completed "
+                    f"in {self.movement_timeout}s timeout"
+                )
+
         except subprocess.TimeoutExpired:
             if self.is_hardware_mode:
-                self.fail(f"Park operation timed out after {self.movement_timeout}s in hardware mode")
+                self.fail(
+                    "Park operation timed out after "
+                    f"{self.movement_timeout}s in hardware mode"
+                )
             else:
                 # In smoke mode, park may not complete; treat timeout as acceptable
                 print("   🔹 Smoke mode park timeout is acceptable")
@@ -319,9 +344,12 @@ class TestINDIScripts(unittest.TestCase):
         )
         # Should succeed or at least not crash
         self.assertIn(result.returncode, [0, 1])
-        
+
         if self.is_hardware_mode:
-            print(f"   ⚡ Hardware unpark operation completed within {self.script_timeout}s")
+            print(
+                "   ⚡ Hardware unpark operation completed "
+                f"within {self.script_timeout}s"
+            )
 
     def test_goto_script(self):
         """Test goto.py script functionality."""
@@ -342,7 +370,10 @@ class TestINDIScripts(unittest.TestCase):
             )
         except subprocess.TimeoutExpired:
             if self.is_hardware_mode:
-                self.fail(f"Goto with invalid azimuth timed out after {self.script_timeout}s in hardware mode")
+                self.fail(
+                    "Goto with invalid azimuth timed out "
+                    f"after {self.script_timeout}s in hardware mode"
+                )
             else:
                 # In smoke mode, rotation may simulate moves; a short timeout is ok
                 pass
@@ -362,7 +393,10 @@ class TestINDIScripts(unittest.TestCase):
             )
         except subprocess.TimeoutExpired:
             if self.is_hardware_mode:
-                print(f"   ⚠️  Goto with no args timed out after {self.script_timeout}s (expected in hardware mode)")
+                print(
+                    "   ⚠️  Goto with no args timed out after "
+                    f"{self.script_timeout}s (expected in hardware mode)"
+                )
             else:
                 # Also acceptable; treat as non-crash within short window
                 pass
@@ -461,7 +495,7 @@ class TestINDIScripts(unittest.TestCase):
                         timeout = 3  # Keep short for smoke mode goto
                     else:
                         timeout = self.script_timeout
-                        
+
                     result = subprocess.run(
                         ["python3", script_path],
                         capture_output=True,
@@ -478,9 +512,12 @@ class TestINDIScripts(unittest.TestCase):
                     )
                 except subprocess.TimeoutExpired:
                     if self.is_hardware_mode and script in ["goto.py", "park.py"]:
-                        self.fail(f"Script {script} timed out after {timeout}s in hardware mode")
+                        self.fail(
+                            f"Script {script} timed out after "
+                            f"{timeout}s in hardware mode"
+                        )
                     else:
-                        # Allow time for long-run scripts (e.g., park, goto) in smoke mode
+                        # Allow time for long-run scripts (e.g. park,goto) in smoke mode
                         pass
 
 
@@ -500,11 +537,11 @@ class TestINDIScriptIntegration(unittest.TestCase):
         self.cwd = REPO_ROOT
         self._config_created = False
         self._config_path = os.path.join(self.cwd, "dome_config.json")
-        
+
         # Detect hardware mode from environment
         self.test_mode = os.environ.get("DOME_TEST_MODE", "smoke").lower()
         self.is_hardware_mode = self.test_mode == "hardware"
-        
+
         if not os.path.exists(self._config_path):
             config_content = self._create_test_config()
             import json
@@ -536,7 +573,7 @@ class TestINDIScriptIntegration(unittest.TestCase):
                 "smoke_test_timeout": 1.0 if not self.is_hardware_mode else 30.0,
             },
         }
-        
+
         if self.is_hardware_mode:
             # Hardware mode configuration
             base_config["hardware"] = {"mock_mode": False, "device_port": 0}
@@ -547,7 +584,7 @@ class TestINDIScriptIntegration(unittest.TestCase):
             base_config["hardware"] = {"mock_mode": True, "device_port": 0}
             base_config["testing"]["smoke_test"] = True
             base_config["testing"]["hardware_mode"] = False
-            
+
         return base_config
 
     def tearDown(self):

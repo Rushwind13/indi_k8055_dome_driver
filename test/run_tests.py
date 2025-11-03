@@ -45,7 +45,10 @@ def run_integration_tests():
         for f in files:
             print(f"  Running {f}...")
             result = subprocess.run(
-                [sys.executable, f], capture_output=True, text=True, timeout=240  # Longer timeout for hardware mode
+                [sys.executable, f],
+                capture_output=True,
+                text=True,
+                timeout=240,  # Longer timeout for hardware mode
             )
             if result.returncode == 0:
                 print(result.stdout)

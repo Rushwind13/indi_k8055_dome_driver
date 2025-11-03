@@ -95,18 +95,18 @@ def step_wait_seconds(context, seconds):
     # Get timeout multiplier from context/config
     timeout_multiplier = 1.0
     is_hardware_mode = False
-    
+
     try:
-        if hasattr(context, 'app_config') and context.app_config:
-            testing_config = context.app_config.get('testing', {})
-            timeout_multiplier = testing_config.get('timeout_multiplier', 1.0)
-            is_hardware_mode = testing_config.get('hardware_mode', False)
+        if hasattr(context, "app_config") and context.app_config:
+            testing_config = context.app_config.get("testing", {})
+            timeout_multiplier = testing_config.get("timeout_multiplier", 1.0)
+            is_hardware_mode = testing_config.get("hardware_mode", False)
     except Exception:
         pass
-    
+
     # Apply timeout multiplier for hardware mode
     actual_seconds = int(seconds * timeout_multiplier)
-    
+
     if is_hardware_mode:
         print(f"⚡ HARDWARE MODE: Waiting {actual_seconds} seconds (was {seconds}s)")
         time.sleep(actual_seconds)
@@ -118,21 +118,21 @@ def step_wait_seconds(context, seconds):
 def get_operation_timeout(context, operation_type="default"):
     """Get appropriate timeout for operation based on test mode."""
     base_timeouts = {
-        "shutter": 5,     # Base shutter operation timeout
-        "rotation": 10,   # Base rotation timeout  
-        "park": 15,       # Base park operation timeout
-        "goto": 20,       # Base goto operation timeout
-        "default": 3      # Default operation timeout
+        "shutter": 5,  # Base shutter operation timeout
+        "rotation": 10,  # Base rotation timeout
+        "park": 15,  # Base park operation timeout
+        "goto": 20,  # Base goto operation timeout
+        "default": 3,  # Default operation timeout
     }
-    
+
     base_timeout = base_timeouts.get(operation_type, base_timeouts["default"])
-    
+
     try:
-        if hasattr(context, 'app_config') and context.app_config:
-            testing_config = context.app_config.get('testing', {})
-            timeout_multiplier = testing_config.get('timeout_multiplier', 1.0)
-            is_hardware_mode = testing_config.get('hardware_mode', False)
-            
+        if hasattr(context, "app_config") and context.app_config:
+            testing_config = context.app_config.get("testing", {})
+            timeout_multiplier = testing_config.get("timeout_multiplier", 1.0)
+            is_hardware_mode = testing_config.get("hardware_mode", False)
+
             if is_hardware_mode:
                 # Hardware mode gets much longer timeouts
                 return int(base_timeout * timeout_multiplier)
@@ -141,7 +141,7 @@ def get_operation_timeout(context, operation_type="default"):
                 return base_timeout
     except Exception:
         return base_timeout
-    
+
     return base_timeout
 
 

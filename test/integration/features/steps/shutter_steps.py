@@ -293,17 +293,19 @@ def step_command_shutter_open(context):
     # Get timeout for shutter operations
     timeout = 5  # Default timeout
     try:
-        if hasattr(context, 'app_config') and context.app_config:
-            testing_config = context.app_config.get('testing', {})
-            timeout_multiplier = testing_config.get('timeout_multiplier', 1.0)
+        if hasattr(context, "app_config") and context.app_config:
+            testing_config = context.app_config.get("testing", {})
+            timeout_multiplier = testing_config.get("timeout_multiplier", 1.0)
             timeout = int(5 * timeout_multiplier)  # Base 5s timeout
     except Exception:
         pass
-    
+
     # Check if this is hardware mode
-    is_hardware_mode = getattr(context, 'hardware_mode', False)
-    if hasattr(context, 'app_config') and context.app_config:
-        is_hardware_mode = context.app_config.get('testing', {}).get('hardware_mode', False)
+    is_hardware_mode = getattr(context, "hardware_mode", False)
+    if hasattr(context, "app_config") and context.app_config:
+        is_hardware_mode = context.app_config.get("testing", {}).get(
+            "hardware_mode", False
+        )
 
     # If smoke mode, simulate operation quickly
     if not is_hardware_mode:
@@ -327,23 +329,23 @@ def step_command_shutter_open(context):
         # record a start time for the operation so downstream checks that
         # expect a motor run can detect an operation was started
         context.shutter_start_time = time.time()
-        
+
         # Simulate actual shutter opening time in hardware mode
         context.dome.is_opening = True
         context.dome.is_closing = False
         context.dome.shutter_position = "opening"
-        
+
         # Simulate shutter operation time (shorter than full timeout)
         shutter_time = min(timeout * 0.7, 10)  # Use 70% of timeout or 10s max
         time.sleep(shutter_time)
-        
+
         # Complete the operation
         if getattr(context, "shutter_limit_switches_ok", True):
             context.dome.is_opening = False
             context.dome.is_open = True
             context.dome.is_closed = False
             context.dome.shutter_position = "open"
-            
+
     except Exception:
         # best-effort fallback
         context.dome.is_opening = True
@@ -364,17 +366,19 @@ def step_command_shutter_close(context):
     # Get timeout for shutter operations
     timeout = 5  # Default timeout
     try:
-        if hasattr(context, 'app_config') and context.app_config:
-            testing_config = context.app_config.get('testing', {})
-            timeout_multiplier = testing_config.get('timeout_multiplier', 1.0)
+        if hasattr(context, "app_config") and context.app_config:
+            testing_config = context.app_config.get("testing", {})
+            timeout_multiplier = testing_config.get("timeout_multiplier", 1.0)
             timeout = int(5 * timeout_multiplier)  # Base 5s timeout
     except Exception:
         pass
-    
+
     # Check if this is hardware mode
-    is_hardware_mode = getattr(context, 'hardware_mode', False)
-    if hasattr(context, 'app_config') and context.app_config:
-        is_hardware_mode = context.app_config.get('testing', {}).get('hardware_mode', False)
+    is_hardware_mode = getattr(context, "hardware_mode", False)
+    if hasattr(context, "app_config") and context.app_config:
+        is_hardware_mode = context.app_config.get("testing", {}).get(
+            "hardware_mode", False
+        )
 
     if not is_hardware_mode:
         context.dome.is_closing = True
@@ -394,23 +398,23 @@ def step_command_shutter_close(context):
         result = context.dome.shutter_close()
         context.last_shutter_command_result = result
         context.shutter_start_time = time.time()
-        
+
         # Simulate actual shutter closing time in hardware mode
         context.dome.is_closing = True
         context.dome.is_opening = False
         context.dome.shutter_position = "closing"
-        
+
         # Simulate shutter operation time (shorter than full timeout)
         shutter_time = min(timeout * 0.7, 10)  # Use 70% of timeout or 10s max
         time.sleep(shutter_time)
-        
+
         # Complete the operation
         if getattr(context, "shutter_limit_switches_ok", True):
             context.dome.is_closing = False
             context.dome.is_closed = True
             context.dome.is_open = False
             context.dome.shutter_position = "closed"
-            
+
     except Exception:
         context.dome.is_closing = True
 

@@ -57,6 +57,30 @@ def _set_pos(context, value):
         pass
 
 
+def _get_position_tolerance(context):
+    """Get position tolerance from config or default based on hardware mode."""
+    # Use existing config pattern from startup_shutdown_steps
+    default_tolerance = 2.0 if getattr(context, "hardware_mode", False) else 0.1
+    return getattr(context, "app_config", {}).get(
+        "azimuth_tolerance", default_tolerance
+    )
+
+
+def _assert_position_within_tolerance(
+    actual, expected, tolerance, message_prefix="Position"
+):
+    """Assert position within tolerance using existing
+    pattern from startup_shutdown_steps."""
+    # Use the same logic as existing tolerance checks
+    diff = abs(actual - expected)
+    if diff > 180:
+        diff = 360 - diff
+    assert diff <= tolerance, (
+        f"{message_prefix} error: actual={actual:.1f}°, expected={expected:.1f}°, "
+        f"difference={diff:.1f}°, tolerance=±{tolerance}°"
+    )
+
+
 @given("the dome is in a known state")
 def step_dome_known_state(context):
     _ensure_dome(context)
@@ -88,22 +112,24 @@ def step_rotate_cw(context, degrees):
     _ensure_dome(context)
     start = _get_pos(context)
     target = (start + degrees) % 360
-    
+
     # Get timeout for rotation operations
     timeout = 10  # Default timeout
     try:
-        if hasattr(context, 'app_config') and context.app_config:
-            testing_config = context.app_config.get('testing', {})
-            timeout_multiplier = testing_config.get('timeout_multiplier', 1.0)
+        if hasattr(context, "app_config") and context.app_config:
+            testing_config = context.app_config.get("testing", {})
+            timeout_multiplier = testing_config.get("timeout_multiplier", 1.0)
             timeout = int(10 * timeout_multiplier)  # Base 10s timeout
     except Exception:
         pass
-    
+
     # Check if this is hardware mode
-    is_hardware_mode = getattr(context, 'hardware_mode', False)
-    if hasattr(context, 'app_config') and context.app_config:
-        is_hardware_mode = context.app_config.get('testing', {}).get('hardware_mode', False)
-    
+    is_hardware_mode = getattr(context, "hardware_mode", False)
+    if hasattr(context, "app_config") and context.app_config:
+        is_hardware_mode = context.app_config.get("testing", {}).get(
+            "hardware_mode", False
+        )
+
     if is_hardware_mode:
         print(f"⚡ Hardware rotation CW {degrees}° (timeout: {timeout}s)")
         # In hardware mode, we would call actual dome rotation
@@ -112,6 +138,7 @@ def step_rotate_cw(context, degrees):
         context.dome.dir = context.dome.CW
         # Simulate rotation time proportional to degrees
         import time
+
         rotation_time = min(degrees / 180.0 * timeout, timeout)
         time.sleep(rotation_time)
         _set_pos(context, target)
@@ -122,7 +149,7 @@ def step_rotate_cw(context, degrees):
         context.dome.dir = context.dome.CW
         _set_pos(context, target)
         context.dome.is_turning = False
-        
+
     context.last_rotation = {"from": start, "to": target, "dir": "clockwise"}
 
 
@@ -136,7 +163,14 @@ def step_assert_position_increase(context, degrees):
     rot = getattr(context, "last_rotation", None)
     assert rot is not None, "No rotation recorded"
     diff = (rot["to"] - rot["from"]) % 360
-    assert diff == degrees, f"Position increased by {diff}, expected {degrees}"
+
+    # Use hardware-appropriate tolerance
+    tolerance = _get_position_tolerance(context)
+    # For position changes, we can assert the difference directly
+    assert abs(diff - degrees) <= tolerance, (
+        f"Position increase error: actual={diff:.1f}°, expected={degrees}°, "
+        f"difference={abs(diff - degrees):.1f}°, tolerance=±{tolerance}°"
+    )
 
 
 @when("I rotate the dome counter-clockwise by {degrees:d} degrees")
@@ -144,28 +178,31 @@ def step_rotate_ccw(context, degrees):
     _ensure_dome(context)
     start = _get_pos(context)
     target = (start - degrees) % 360
-    
+
     # Get timeout for rotation operations
     timeout = 10  # Default timeout
     try:
-        if hasattr(context, 'app_config') and context.app_config:
-            testing_config = context.app_config.get('testing', {})
-            timeout_multiplier = testing_config.get('timeout_multiplier', 1.0)
+        if hasattr(context, "app_config") and context.app_config:
+            testing_config = context.app_config.get("testing", {})
+            timeout_multiplier = testing_config.get("timeout_multiplier", 1.0)
             timeout = int(10 * timeout_multiplier)  # Base 10s timeout
     except Exception:
         pass
-    
+
     # Check if this is hardware mode
-    is_hardware_mode = getattr(context, 'hardware_mode', False)
-    if hasattr(context, 'app_config') and context.app_config:
-        is_hardware_mode = context.app_config.get('testing', {}).get('hardware_mode', False)
-    
+    is_hardware_mode = getattr(context, "hardware_mode", False)
+    if hasattr(context, "app_config") and context.app_config:
+        is_hardware_mode = context.app_config.get("testing", {}).get(
+            "hardware_mode", False
+        )
+
     if is_hardware_mode:
         print(f"⚡ Hardware rotation CCW {degrees}° (timeout: {timeout}s)")
         context.dome.is_turning = True
         context.dome.dir = context.dome.CCW
         # Simulate rotation time proportional to degrees
         import time
+
         rotation_time = min(degrees / 180.0 * timeout, timeout)
         time.sleep(rotation_time)
         _set_pos(context, target)
@@ -176,7 +213,7 @@ def step_rotate_ccw(context, degrees):
         context.dome.dir = context.dome.CCW
         _set_pos(context, target)
         context.dome.is_turning = False
-        
+
     context.last_rotation = {"from": start, "to": target, "dir": "counter-clockwise"}
 
 
@@ -191,7 +228,14 @@ def step_assert_position_decrease(context, degrees):
     assert rot is not None, "No rotation recorded"
     # compute decrease (positive value)
     decrease = (rot["from"] - rot["to"]) % 360
-    assert decrease == degrees, f"Position decreased by {decrease}, expected {degrees}"
+
+    # Use hardware-appropriate tolerance
+    tolerance = _get_position_tolerance(context)
+    # For position changes, we can assert the difference directly
+    assert abs(decrease - degrees) <= tolerance, (
+        f"Position decrease error: actual={decrease:.1f}°, expected={degrees}°, "
+        f"difference={abs(decrease - degrees):.1f}°, tolerance=±{tolerance}°"
+    )
 
 
 @then("the rotation should complete successfully")
@@ -204,32 +248,35 @@ def step_command_move_to_azimuth(context, azimuth):
     _ensure_dome(context)
     start = _get_pos(context)
     target = azimuth % 360
-    
+
     # Get timeout for goto operations
     timeout = 20  # Default timeout
     try:
-        if hasattr(context, 'app_config') and context.app_config:
-            testing_config = context.app_config.get('testing', {})
-            timeout_multiplier = testing_config.get('timeout_multiplier', 1.0)
+        if hasattr(context, "app_config") and context.app_config:
+            testing_config = context.app_config.get("testing", {})
+            timeout_multiplier = testing_config.get("timeout_multiplier", 1.0)
             timeout = int(20 * timeout_multiplier)  # Base 20s timeout
     except Exception:
         pass
-    
+
     # Check if this is hardware mode
-    is_hardware_mode = getattr(context, 'hardware_mode', False)
-    if hasattr(context, 'app_config') and context.app_config:
-        is_hardware_mode = context.app_config.get('testing', {}).get('hardware_mode', False)
-    
+    is_hardware_mode = getattr(context, "hardware_mode", False)
+    if hasattr(context, "app_config") and context.app_config:
+        is_hardware_mode = context.app_config.get("testing", {}).get(
+            "hardware_mode", False
+        )
+
     if is_hardware_mode:
         # Calculate rotation needed
         diff = abs(target - start)
         if diff > 180:
             diff = 360 - diff
         print(f"⚡ Hardware goto {azimuth}° (rotation: {diff}°, timeout: {timeout}s)")
-        
+
         context.dome.is_turning = True
         # Simulate rotation time proportional to movement
         import time
+
         rotation_time = min(diff / 180.0 * timeout, timeout)
         time.sleep(rotation_time)
         _set_pos(context, target)
@@ -240,18 +287,28 @@ def step_command_move_to_azimuth(context, azimuth):
         # choose shortest path for simulation (no intermediate telemetry)
         _set_pos(context, target)
         context.dome.is_turning = False
-        
+
     context.last_rotation = {"from": start, "to": target}
 
 
 @then("the dome should rotate to azimuth {azimuth:d} degrees")
 def step_assert_rotate_to_azimuth(context, azimuth):
-    assert getattr(context.dome, "position", None) == azimuth
+    actual = getattr(context.dome, "position", None)
+    assert actual is not None, "Dome position not available"
+
+    # Use hardware-appropriate tolerance
+    tolerance = _get_position_tolerance(context)
+    _assert_position_within_tolerance(actual, azimuth, tolerance, "Rotation target")
 
 
 @then("the final position should be {azimuth:d} degrees")
 def step_assert_final_position(context, azimuth):
-    assert getattr(context.dome, "position", None) == azimuth
+    actual = getattr(context.dome, "position", None)
+    assert actual is not None, "Dome position not available"
+
+    # Use hardware-appropriate tolerance
+    tolerance = _get_position_tolerance(context)
+    _assert_position_within_tolerance(actual, azimuth, tolerance, "Final position")
 
 
 @then("the rotation should use the shortest path")
@@ -295,7 +352,12 @@ def step_verify_dome_azimuth(context, azimuth):
 
 @then("the final position should be 20 degrees (380 - 360)")
 def step_assert_final_wrap(context):
-    assert getattr(context.dome, "position", None) == 20
+    actual = getattr(context.dome, "position", None)
+    assert actual is not None, "Dome position not available"
+
+    # Use hardware-appropriate tolerance
+    tolerance = _get_position_tolerance(context)
+    _assert_position_within_tolerance(actual, 20, tolerance, "Wraparound position")
 
 
 @given("the dome is rotating clockwise")

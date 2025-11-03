@@ -49,7 +49,7 @@ def before_all(context):
         print("   - Timeouts: 30-120 seconds for movements")
         context.hardware_mode = True
         context.timeout_multiplier = 30.0  # Scale timeouts for hardware
-        
+
         # Validate hardware configuration is available
         _validate_hardware_configuration(context)
     else:
@@ -63,31 +63,31 @@ def before_all(context):
 def _validate_hardware_configuration(context):
     """Validate that hardware configuration is properly set up."""
     import os
-    
+
     print("🔍 Validating hardware configuration...")
-    
+
     # Check for hardware configuration file
     config_paths = [
         "dome_config.json",
         "examples/dome_config_production.json",
-        "indi_driver/dome_config.json"
+        "indi_driver/dome_config.json",
     ]
-    
+
     config_found = False
     for config_path in config_paths:
         if os.path.exists(config_path):
             config_found = True
             print(f"   ✅ Found config file: {config_path}")
             break
-    
+
     if not config_found:
         print("   ⚠️  No hardware config found, tests may use default settings")
         print("   📝 Consider creating dome_config.json for hardware testing")
-    
+
     # Validate environment setup
     if "PYTHONPATH" not in os.environ:
         print("   ⚠️  PYTHONPATH not set, may affect module imports")
-    
+
     print("   ✅ Hardware mode validation complete")
 
 
@@ -116,7 +116,7 @@ def before_feature(context, feature):
                 context.app_config["testing"]["smoke_test"] = True
             if "hardware" in context.app_config:
                 context.app_config["hardware"]["mock_mode"] = True
-                
+
             print("   🔧 Configured for smoke test mode")
         elif context.test_mode == "hardware":
             # Configure for hardware mode
@@ -125,15 +125,19 @@ def before_feature(context, feature):
                 context.app_config["testing"]["smoke_test"] = False
             if "hardware" in context.app_config:
                 context.app_config["hardware"]["mock_mode"] = False
-                
+
             print("   ⚡ Configured for hardware mode")
             print("   ⚠️  REAL HARDWARE OPERATIONS ENABLED")
-            
+
         # Add timeout multiplier to config for step files
         if "testing" not in context.app_config:
             context.app_config["testing"] = {}
-        context.app_config["testing"]["timeout_multiplier"] = getattr(context, "timeout_multiplier", 1.0)
-        context.app_config["testing"]["hardware_mode"] = getattr(context, "hardware_mode", False)
+        context.app_config["testing"]["timeout_multiplier"] = getattr(
+            context, "timeout_multiplier", 1.0
+        )
+        context.app_config["testing"]["hardware_mode"] = getattr(
+            context, "hardware_mode", False
+        )
 
 
 def before_scenario(context, scenario):
@@ -176,22 +180,22 @@ def _perform_safety_validation(context):
         # Validate abort script is available and executable
         import os
         import subprocess
-        
+
         ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
         abort_script = os.path.join(ROOT_DIR, "indi_driver", "scripts", "abort.py")
-        
+
         if not os.path.exists(abort_script):
             raise Exception(f"Critical safety script missing: {abort_script}")
-            
+
         if not os.access(abort_script, os.X_OK):
             raise Exception(f"Abort script not executable: {abort_script}")
-            
+
         # Test abort script functionality
         env = os.environ.copy()
         lib_path = os.path.join(ROOT_DIR, "indi_driver", "lib")
         existing = env.get("PYTHONPATH", "")
         env["PYTHONPATH"] = lib_path + (os.pathsep + existing if existing else "")
-        
+
         result = subprocess.run(
             ["python3", abort_script],
             capture_output=True,
@@ -200,12 +204,14 @@ def _perform_safety_validation(context):
             env=env,
             cwd=ROOT_DIR,
         )
-        
+
         if result.returncode not in [0, 1]:
-            raise Exception(f"Abort script test failed with exit code {result.returncode}")
-            
+            raise Exception(
+                f"Abort script test failed with exit code {result.returncode}"
+            )
+
         print("   ✅ Abort script validation passed")
-        
+
         # Validate configuration contains safety settings
         config = getattr(context, "app_config", {})
         if not config.get("hardware", {}).get("mock_mode", True):
@@ -213,9 +219,9 @@ def _perform_safety_validation(context):
             testing_config = config.get("testing", {})
             if testing_config.get("timeout_multiplier", 1.0) < 10:
                 print("   ⚠️  Low timeout multiplier for hardware mode")
-                
+
         print("   ✅ Safety configuration validated")
-        
+
     except Exception as e:
         print(f"   ❌ Safety validation failed: {e}")
         raise
@@ -229,59 +235,60 @@ def _initialize_hardware_safety(context):
             print("   ✅ Emergency stop available")
         else:
             print("   ⚠️  Emergency stop method not found")
-            
+
         # Ensure abort is available
         if hasattr(context.dome, "abort"):
             print("   ✅ Abort method available")
         else:
             print("   ⚠️  Abort method not found")
-            
+
         # Initialize safety state tracking
         context.dome.safety_stop_requested = False
         context.dome.last_safety_check = time.time()
-        
+
         # Add safety timeout tracking
-        context.safety_timeout = getattr(context, "timeout_multiplier", 30.0) * 10  # 10x base timeout
-        
+        context.safety_timeout = (
+            getattr(context, "timeout_multiplier", 30.0) * 10
+        )  # 10x base timeout
+
         print("   🔒 Hardware safety mechanisms initialized")
-        
+
     except Exception as e:
         print(f"   ⚠️  Safety initialization warning: {e}")
         # Don't fail scenario setup for safety init issues
 
 
 def after_scenario(context, scenario):
-    """Cleanup after each scenario.
+    """Cleanup after each scenario with enhanced error recovery.
 
     Keep this hook extremely defensive to avoid any exceptions propagating
-    to Behave that could cause a cleanup_error result. We intentionally
-    minimize logic and swallow any unexpected errors.
+    to Behave that could cause a cleanup_error result. Enhanced for robust
+    hardware error recovery and communication failure handling.
     """
     try:
-        # Enhanced safety for hardware mode
+        # Enhanced safety for hardware mode with retry logic
         if (
             hasattr(context, "dome")
             and getattr(context, "test_mode", "smoke") == "hardware"
         ):
             try:
-                print("   🛑 Hardware mode: Executing safety cleanup...")
-                # Emergency stop to ensure dome is not moving
-                if hasattr(context.dome, "emergency_stop"):
-                    context.dome.emergency_stop()
-                    print("   ✅ Emergency stop executed")
-                
-                # Additional hardware safety checks
-                if hasattr(context.dome, "abort"):
-                    context.dome.abort()
-                    print("   ✅ Abort command executed")
-                    
-                # Give hardware time to stop
-                time.sleep(0.5)
-                
+                print("   🛑 Hardware mode: Executing enhanced safety cleanup...")
+
+                # Multi-stage safety cleanup with retries
+                _execute_enhanced_safety_cleanup(context)
+
             except Exception as e:
                 # Log but never propagate cleanup issues
                 print(f"   ⚠️  Hardware cleanup warning: {e}")
-                pass
+
+                # Final fallback - try direct abort script
+                try:
+                    _execute_fallback_abort(context)
+                except Exception:
+                    print(
+                        "   ⚠️  Fallback abort also failed - "
+                        "manual intervention may be needed"
+                    )
 
         # Soft tracking for summaries (non-critical)
         try:
@@ -294,6 +301,108 @@ def after_scenario(context, scenario):
     except Exception:
         # Absolutely never raise from cleanup
         pass
+
+
+def _execute_enhanced_safety_cleanup(context):
+    """
+    Execute enhanced safety cleanup with retry logic for hardware mode.
+
+    Args:
+        context: Behave context object
+    """
+    max_retries = 3
+
+    for attempt in range(max_retries):
+        try:
+            # Primary safety cleanup
+            if hasattr(context.dome, "emergency_stop"):
+                context.dome.emergency_stop()
+                print(f"   ✅ Emergency stop executed (attempt {attempt + 1})")
+
+            # Additional hardware safety checks
+            if hasattr(context.dome, "abort"):
+                context.dome.abort()
+                print(f"   ✅ Abort command executed (attempt {attempt + 1})")
+
+            # Test communication is still working
+            if hasattr(context.dome, "status"):
+                try:
+                    status = context.dome.status()
+                    print(
+                        "   ✅ Communication verified "
+                        f"(attempt {attempt + 1}): {status}"
+                    )
+                    break  # Success - exit retry loop
+                except Exception as e:
+                    if attempt < max_retries - 1:
+                        print(
+                            "   🔄 Communication check failed, "
+                            f"retrying... ({e}): {status}"
+                        )
+                        time.sleep(0.5)
+                        continue
+                    else:
+                        print(
+                            "   ⚠️  Communication still failing "
+                            f"after retries: {e}: {status}"
+                        )
+            else:
+                break  # No status method available - consider successful
+
+        except Exception as e:
+            if attempt < max_retries - 1:
+                print(f"   🔄 Safety cleanup failed, retrying... ({e})")
+                time.sleep(0.5)
+                continue
+            else:
+                print(f"   ❌ Safety cleanup failed after {max_retries} attempts: {e}")
+                raise  # Re-raise for fallback handling
+
+    # Give hardware time to settle after successful cleanup
+    time.sleep(1.0)
+
+
+def _execute_fallback_abort(context):
+    """
+    Execute fallback abort using direct script execution.
+
+    Args:
+        context: Behave context object
+    """
+    import os
+    import subprocess
+
+    try:
+        ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+        abort_script = os.path.join(ROOT_DIR, "indi_driver", "scripts", "abort.py")
+
+        if os.path.exists(abort_script):
+            env = os.environ.copy()
+            lib_path = os.path.join(ROOT_DIR, "indi_driver", "lib")
+            existing = env.get("PYTHONPATH", "")
+            env["PYTHONPATH"] = lib_path + (os.pathsep + existing if existing else "")
+
+            result = subprocess.run(
+                ["python3", abort_script],
+                capture_output=True,
+                text=True,
+                timeout=5,
+                env=env,
+                cwd=ROOT_DIR,
+            )
+
+            if result.returncode == 0:
+                print("   ✅ Fallback abort script executed successfully")
+            else:
+                print(
+                    f"   ⚠️  Fallback abort script returned non-zero: {result.stderr}"
+                )
+        else:
+            print("   ⚠️  Fallback abort script not found")
+
+    except Exception as e:
+        print(f"   ⚠️  Fallback abort failed: {e}")
+        # Don't re-raise - this is the last resort
 
 
 def after_feature(context, feature):

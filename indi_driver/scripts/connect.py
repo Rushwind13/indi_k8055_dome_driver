@@ -1,21 +1,20 @@
 #!/usr/bin/env python3
 """
-INDI Dome Script
+INDI Dome Script: Connect
+Tests dome hardware connection.
 """
 
 import os
 import sys
 
-sys.path.insert(
-    0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "lib")
-)
-
-from dome import Dome  # noqa: E402
-
 
 def main():
+    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    from dome import Dome
+
     try:
-        Dome(verbose=False)
+        # Constructing Dome will attempt to initialize the hardware
+        Dome()
         sys.exit(0)
     except Exception:
         sys.exit(1)

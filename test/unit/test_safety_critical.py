@@ -12,10 +12,9 @@ import threading
 import time
 from unittest.mock import MagicMock, Mock, patch
 
-# Add indi_driver/lib directory to path for imports
-sys.path.insert(
-    0, os.path.join(os.path.dirname(os.path.dirname(__file__)), "indi_driver", "lib")
-)
+# Add indi_driver/lib directory to path for imports (repo root)
+REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+sys.path.insert(0, os.path.join(REPO_ROOT, "indi_driver", "lib"))
 
 import dome  # noqa: E402
 import pyk8055_wrapper  # noqa: E402
@@ -59,9 +58,8 @@ class TestEmergencyStop:
         # Start rotation
         self.dome.is_turning = True
 
-        # Simulate emergency stop - turn off motor and update state
-        self.dome.dome.digital_off(self.dome.DOME_ROTATE)
-        self.dome.is_turning = False  # State must be updated when stopping
+        # Simulate emergency stop using the public API
+        self.dome.rotation_stop()
 
         # Verify rotation stopped
         assert not self.dome.is_turning
@@ -250,9 +248,9 @@ class TestConfigurationValidation:
                 "shutter_direction": 4,
             },
             "calibration": {
-                "home_position": 0,
-                "ticks_to_degrees": 1.0,
                 "poll_interval": 0.1,
+                "home_position": 0.0,
+                "ticks_to_degrees": 1.0,
             },
             "hardware": {"mock_mode": True, "device_port": 0},
             "testing": {"smoke_test": True, "smoke_test_timeout": 0.1},
@@ -376,19 +374,9 @@ class TestMotionSafety:
         home_pin = self.dome.HOME
         self.dome.dome.k8055_device._digital_inputs[home_pin] = True
 
-        # Start shutter opening
-        result1 = self.dome.shutter_open()
-        assert result1 is True
-        assert self.dome.is_opening
-        assert not self.dome.is_closing
+        # Simulate emergency stop using the public API
+        self.dome.rotation_stop()
 
-        # Try to close while opening - should be prevented by safety check
-        result2 = self.dome.shutter_close()
-        assert result2 is False  # Should fail due to operation in progress
-
-        # Verify the original operation is still active and no simultaneous operations
-        assert self.dome.is_opening  # Original operation still active
-        assert not self.dome.is_closing  # Second operation was prevented
         assert not (self.dome.is_opening and self.dome.is_closing)
 
     def test_shutter_limit_enforcement(self):

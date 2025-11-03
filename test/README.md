@@ -1,18 +1,22 @@
-# Dome Control System - BDD Test Suite
+# Dome Control System - Test Suite
 
-This directory contains a comprehensive Behavior-Driven Development (BDD) test suite for the dome control system. The tests are written using Cucumber/Gherkin syntax and executed with the Python `behave` framework.
+This directory contains the complete automated test suite for the dome control system:
+- Unit and safety tests (pytest)
+- Integration tests (wrapper + INDI scripts)
+- Documentation script checks
+- Behavior-Driven Development (BDD) tests (behave)
 
 ## 🔍 Overview
 
-The test suite provides comprehensive coverage of dome operations including:
-- **Startup and Shutdown**: System initialization and safe shutdown procedures
-- **Dome Rotation**: Clockwise/counter-clockwise rotation and azimuth positioning
-- **Home Operations**: Finding and returning to home position
-- **Shutter Control**: Opening and closing shutter with safety checks
-- **Telemetry Monitoring**: Position reporting and system status
-- **Error Handling**: Edge cases, hardware failures, and safety scenarios
+The test suite validates:
+- Startup and shutdown flows
+- Dome rotation (CW/CCW) and azimuth positioning
+- Home operations
+- Shutter operations with safety checks
+- Telemetry/status reporting
+- Error handling and safety scenarios
 
-## 🔧 Test Modes
+## 🔧 Test Modes (BDD)
 
 ### Smoke Test Mode (Default)
 - **Safe**: No real hardware operations
@@ -37,25 +41,40 @@ pip install -r test/requirements.txt
 pip install behave mock
 ```
 
-### 2. Run Smoke Tests (Safe)
+### 2) Run tests
 ```bash
-# Run all smoke tests
+# Run integration + unit + doc + BDD (smoke) tests
 python test/run_tests.py
 
-# Run specific feature
+# Run unit tests only
+python test/run_tests.py --unit
+
+# Run integration tests only
+python test/run_tests.py --integration-only
+
+# Run doc checks only
+python test/run_tests.py --doc-only
+
+# Run BDD only (smoke mode)
+python test/run_tests.py --bdd-only
+
+# Run BDD specific feature
 python test/run_tests.py --feature rotation
 
-# List available features
+# List available BDD features
 python test/run_tests.py --list-features
+
+# Include pre-commit checks (lint/format/security)
+python test/run_tests.py --all
 ```
 
-### 3. Run Hardware Tests (CAUTION!)
+### 3) Hardware test mode (CAUTION!)
 ```bash
-# ⚠️ WARNING: This operates real hardware!
-python test/run_tests.py --mode hardware
+# ⚠️ WARNING: Operates real hardware. Use with care.
+python test/run_tests.py --mode hardware -y
 ```
 
-## 📋 Test Features
+## 📋 BDD Features
 
 ### `dome_startup_shutdown.feature`
 Tests system initialization and shutdown procedures:
@@ -150,18 +169,28 @@ python test/run_tests.py --format junit --output results.xml
 
 ```
 test/
-├── features/                    # Cucumber feature files
-│   ├── dome_startup_shutdown.feature
-│   ├── dome_rotation.feature
-│   ├── dome_home.feature
-│   ├── shutter_operations.feature
-│   ├── telemetry_monitoring.feature
-│   └── error_handling.feature
-├── steps/                       # Step definitions
-│   ├── common_steps.py          # Shared step definitions
-│   ├── error_handling_steps.py  # Error handling steps
-│   └── startup_shutdown_steps.py # Startup/shutdown steps
-├── environment.py               # Behave configuration
+├── unit/                        # Pytest unit & safety tests (CI)
+│   ├── test_dome_units.py
+│   └── test_safety_critical.py
+├── integration/                 # Integration tests and BDD (CI)
+│   ├── test_wrapper_integration.py
+│   ├── test_indi_scripts.py
+│   └── features/                # Cucumber features & hooks
+│       ├── environment.py       # Behave hooks (moved here)
+│       ├── steps/               # Step definitions
+│       ├── dome_startup_shutdown.feature
+│       ├── dome_rotation.feature
+│       ├── dome_home.feature
+│       ├── shutter_operations.feature
+│       ├── telemetry_monitoring.feature
+│       └── error_handling.feature
+├── doc/                         # Documentation script checks (CI)
+│   └── test_doc_scripts.py
+├── smoke/                       # Developer smoke demos (not in CI)
+│   ├── test_dome.py
+│   └── test_shutter.py
+├── tools/                       # Test utilities / helpers
+│   └── validate_setup.py
 ├── run_tests.py                 # Test runner script
 ├── requirements.txt             # Test dependencies
 └── README.md                    # This file
@@ -192,11 +221,7 @@ pip install behave
 ```
 
 #### "Import dome could not be resolved"
-Make sure you're running from the correct directory:
-```bash
-cd indi_dome_driver
-python test/run_tests.py
-```
+The test runner sets PYTHONPATH for you. If you run Behave directly, run from the repo root so `indi_driver/lib` is importable.
 
 #### Hardware tests fail
 1. Check dome configuration

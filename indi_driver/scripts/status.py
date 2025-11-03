@@ -1,25 +1,36 @@
 #!/usr/bin/env python3
 """
-INDI Dome Script: Status
-Reports dome status to stdout or file.
+INDI Dome Script
 """
 
 import os
 import sys
 
-sys.path.insert(
-    0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "lib")
-)
-
-from dome import Dome  # noqa: E402
-
 
 def main():
+    sys.path.insert(
+        0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "lib")
+    )
+    from dome import Dome
+
     try:
-        dome = Dome(verbose=False)
-        parked = 1 if dome.isHome() else 0
-        shutter_open = 1 if dome.isOpen() else 0
-        azimuth = dome.get_pos()
+        dome = Dome()
+        # derive status from library methods/attributes
+        try:
+            parked = bool(getattr(dome, "is_home", False) or dome.isHome())
+        except Exception:
+            parked = bool(getattr(dome, "is_home", False))
+
+        try:
+            shutter_open = bool(getattr(dome, "is_open", False) or dome.isOpen())
+        except Exception:
+            shutter_open = bool(getattr(dome, "is_open", False))
+
+        try:
+            azimuth = float(dome.get_pos())
+        except Exception:
+            azimuth = 0.0
+
         status_line = f"{parked} {shutter_open} {azimuth:.1f}"
 
         # Check if we have a file argument (from INDI)

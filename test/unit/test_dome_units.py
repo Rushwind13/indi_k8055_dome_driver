@@ -11,10 +11,9 @@ import sys
 import time
 from unittest.mock import MagicMock, Mock, patch
 
-# Add indi_driver/lib directory to path for imports
-sys.path.insert(
-    0, os.path.join(os.path.dirname(os.path.dirname(__file__)), "indi_driver", "lib")
-)
+# Add indi_driver/lib directory to path for imports (repo root)
+REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+sys.path.insert(0, os.path.join(REPO_ROOT, "indi_driver", "lib"))
 
 import dome  # noqa: E402
 import pyk8055_wrapper  # noqa: E402
@@ -118,13 +117,16 @@ class TestDomeRotation:
 
     def test_ccw_rotation_by_amount(self):
         """Test counter-clockwise rotation by specific amount."""
+
         # Mock the rotation to simulate movement
         # NOTE: Current implementation passes negative amount to rotation()
         # This is a known bug - rotation() only works for positive values
         with patch.object(self.dome, "rotation") as mock_rotation:
             self.dome.ccw(amount=90)
-            # CCW rotation negates the amount
+            # Current buggy behavior: passes -90 to rotation()
             mock_rotation.assert_called_once_with(-90)
+
+        # TODO: Fix rotation() method to handle negative amounts properly
 
     def test_rotation_to_home(self):
         """Test rotation to home position."""
@@ -134,16 +136,28 @@ class TestDomeRotation:
 
     def test_home_detection(self):
         """Test home position detection."""
-        # Mock home switch reading - use the correct pin from config
-        home_pin = self.dome.HOME  # This should be pin 3 from test config
+        # Mock home switch reading by overriding the ReadDigitalChannel method
+        # The k8055 device has special logic for channel 3, so we need to mock it
+        original_method = self.dome.dome.k8055_device.ReadDigitalChannel
 
-        # Test home switch active
-        self.dome.dome.k8055_device._digital_inputs[home_pin] = True
+        def mock_home_switch(channel):
+            if channel == 3:  # Home switch
+                return 1  # Return True for home switch
+            return original_method(channel)
+
+        self.dome.dome.k8055_device.ReadDigitalChannel = mock_home_switch
         assert self.dome.isHome() is True
 
-        # Test home switch inactive
-        self.dome.dome.k8055_device._digital_inputs[home_pin] = False
+        def mock_home_switch_off(channel):
+            if channel == 3:  # Home switch
+                return 0  # Return False for home switch
+            return original_method(channel)
+
+        self.dome.dome.k8055_device.ReadDigitalChannel = mock_home_switch_off
         assert self.dome.isHome() is False
+
+        # Restore original method
+        self.dome.dome.k8055_device.ReadDigitalChannel = original_method
 
 
 class TestDomeCounters:
@@ -252,35 +266,48 @@ class TestShutterOperations:
 
     def test_shutter_open_operation(self):
         """Test shutter opening operation."""
-        # Mock shutter as closed initially and dome at home
-        self.dome.is_closed = True
-        self.dome.is_open = False
+        # Mock dome at home position (required for shutter operations)
+        original_method = self.dome.dome.k8055_device.ReadDigitalChannel
 
-        # Mock home switch to return True (dome at home position)
-        home_pin = self.dome.HOME
-        self.dome.dome.k8055_device._digital_inputs[home_pin] = True
+        def mock_home_switch(channel):
+            if channel == 3:  # Home switch
+                return 1  # Return True for home switch
+            return original_method(channel)
 
-        # Test opening - shutter_open should return True and set is_opening
+        self.dome.dome.k8055_device.ReadDigitalChannel = mock_home_switch
+
+        # Start the open operation and capture the result
         result = self.dome.shutter_open()
-        assert result is True
-        assert self.dome.is_opening is True
-        assert self.dome.is_closing is False
+
+        assert result is True  # Should succeed when at home
+        assert self.dome.is_opening is True  # Should set opening flag
+        assert self.dome.is_closing is False  # Should clear closing flag
+        # Restore original method
+        self.dome.dome.k8055_device.ReadDigitalChannel = original_method
 
     def test_shutter_close_operation(self):
         """Test shutter closing operation."""
-        # Mock shutter as open initially and dome at home
+        # Mock dome at home position (required for shutter operations)
+        original_method = self.dome.dome.k8055_device.ReadDigitalChannel
+
+        def mock_home_switch(channel):
+            if channel == 3:  # Home switch
+                return 1  # Return True for home switch
+            return original_method(channel)
+
+        self.dome.dome.k8055_device.ReadDigitalChannel = mock_home_switch
+
+        # Mock shutter as open initially
         self.dome.is_open = True
         self.dome.is_closed = False
 
-        # Mock home switch to return True (dome at home position)
-        home_pin = self.dome.HOME
-        self.dome.dome.k8055_device._digital_inputs[home_pin] = True
-
-        # Test closing - shutter_close should return True and set is_closing
+        # Test closing - shutter_close() starts operation but doesn't wait
         result = self.dome.shutter_close()
-        assert result is True
-        assert self.dome.is_closing is True
-        assert self.dome.is_opening is False
+        assert result is True  # Should succeed when at home
+        assert self.dome.is_closing is True  # Should set closing flag
+        assert self.dome.is_opening is False  # Should clear opening flag
+        # Restore original method
+        self.dome.dome.k8055_device.ReadDigitalChannel = original_method
 
     def test_shutter_stop_operation(self):
         """Test emergency shutter stop."""

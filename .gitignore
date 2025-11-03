@@ -15,7 +15,6 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
 lib64/
 parts/
 sdist/
@@ -33,6 +32,12 @@ ENV/
 .venv/
 .env/
 virtualenv/
+
+# Python package installation directories (but not our source lib/)
+venv/lib/
+env/lib/
+.venv/lib/
+site-packages/
 
 # IDE
 .vscode/

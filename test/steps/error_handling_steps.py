@@ -120,7 +120,7 @@ def step_dome_harsh_weather(context):
 @when("communication with the K8055 interface times out")
 def step_k8055_timeout(context):
     """Simulate K8055 communication timeout."""
-    if context.config.get("smoke_test", True):
+    if getattr(context, "app_config", {}).get("smoke_test", True):
         context.dome.k8055_timeout = True
         context.dome.last_k8055_response = time.time() - 10  # 10 seconds ago
         # Place system into a safe aborted state for the test

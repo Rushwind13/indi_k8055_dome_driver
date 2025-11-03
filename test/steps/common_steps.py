@@ -27,7 +27,7 @@ def step_dome_controller_initialized(context):
     config["testing"]["smoke_test"] = True
     # Provide a short smoke timeout to make shutter timing deterministic in tests
     config["testing"].setdefault("smoke_test_timeout", 0.1)
-    context.config = config
+    context.app_config = config
     context.dome = Dome(config)
     # Provide a small set of test-only attributes expected by step defs.
     # Keep changes local to tests and non-invasive to production code.
@@ -92,7 +92,7 @@ def step_dome_controller_initialized(context):
 @step("I wait {seconds:d} seconds")
 def step_wait_seconds(context, seconds):
     """Non-blocking wait for smoke tests; blocking in hardware mode."""
-    if context.config.get("testing", {}).get("smoke_test", True):
+    if getattr(context, "app_config", {}).get("testing", {}).get("smoke_test", True):
         # don't actually sleep in smoke tests
         print(f"🔹 SMOKE TEST: Simulated wait of {seconds} seconds")
     else:

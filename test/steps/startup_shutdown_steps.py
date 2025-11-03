@@ -95,7 +95,7 @@ def step_power_on_dome(context):
     context.system_state = "powering_on"
     context.power_on_time = time.time()
 
-    if context.config.get("smoke_test", True):
+    if getattr(context, "app_config", {}).get("smoke_test", True):
         print(f"🔹 SMOKE TEST: Dome system powered on")
     else:
         print(f"⚡ HARDWARE: Powering on dome system")
@@ -113,7 +113,7 @@ def step_initiate_startup(context):
 
     add_error_handling_attributes(context.dome)
 
-    if context.config.get("smoke_test", True):
+    if getattr(context, "app_config", {}).get("smoke_test", True):
         # Simulate startup sequence completion
         context.dome.system_ready = True
         context.initialization_complete = True
@@ -129,7 +129,7 @@ def step_initiate_graceful_shutdown(context):
     context.shutdown_initiated_time = time.time()
     context.shutdown_phase = "stopping_operations"
 
-    if context.config.get("smoke_test", True):
+    if getattr(context, "app_config", {}).get("smoke_test", True):
         # Simulate shutdown sequence
         context.dome.has_active_operations = False
         context.dome.system_ready = False
@@ -146,7 +146,7 @@ def step_force_emergency_shutdown(context):
     context.dome.emergency_shutdown_active = True
     context.dome.has_active_operations = False
 
-    if context.config.get("smoke_test", True):
+    if getattr(context, "app_config", {}).get("smoke_test", True):
         print(f"🔹 SMOKE TEST: Emergency shutdown forced")
     else:
         print(f"⚡ HARDWARE: Emergency shutdown forced")
@@ -176,7 +176,7 @@ def step_verify_power_on_success(context):
 @then("all subsystems should initialize")
 def step_verify_subsystems_initialize(context):
     """Verify all subsystems initialized."""
-    if context.config.get("smoke_test", True):
+    if getattr(context, "app_config", {}).get("smoke_test", True):
         # In smoke test mode, assume all subsystems initialized
         context.motor_subsystem_ready = True
         context.encoder_subsystem_ready = True
@@ -207,7 +207,7 @@ def step_verify_dome_ready(context):
 @then("the home position should be established")
 def step_verify_home_established(context):
     """Verify home position was established."""
-    if context.config.get("smoke_test", True):
+    if getattr(context, "app_config", {}).get("smoke_test", True):
         context.dome.is_homed = True
         context.dome.current_azimuth = 0
         print(f"🔹 SMOKE TEST: Home position established at 0°")
@@ -235,13 +235,15 @@ def step_verify_operations_stop_gracefully(context):
 @then("the dome should return to safe position")
 def step_verify_dome_safe_position(context):
     """Verify dome returned to safe position."""
-    if context.config.get("smoke_test", True):
-        context.dome.current_azimuth = context.config.get("safe_azimuth", 0)
+    if getattr(context, "app_config", {}).get("smoke_test", True):
+        context.dome.current_azimuth = getattr(context, "app_config", {}).get(
+            "safe_azimuth", 0
+        )
         context.dome.is_in_safe_position = True
         print(f"🔹 SMOKE TEST: Dome at safe position ({context.dome.current_azimuth}°)")
     else:
-        safe_azimuth = context.config.get("safe_azimuth", 0)
-        tolerance = context.config.get("azimuth_tolerance", 2)
+        safe_azimuth = getattr(context, "app_config", {}).get("safe_azimuth", 0)
+        tolerance = getattr(context, "app_config", {}).get("azimuth_tolerance", 2)
         current = context.dome.current_azimuth
         diff = abs(current - safe_azimuth)
         if diff > 180:
@@ -255,7 +257,7 @@ def step_verify_dome_safe_position(context):
 @then("the shutter should be closed and secured")
 def step_verify_shutter_secured(context):
     """Verify shutter is closed and secured."""
-    if context.config.get("smoke_test", True):
+    if getattr(context, "app_config", {}).get("smoke_test", True):
         context.dome.shutter_position = "closed"
         context.dome.shutter_secured = True
         print(f"🔹 SMOKE TEST: Shutter closed and secured")
@@ -315,7 +317,7 @@ def step_verify_error_recovery_initiated(context):
 @then("the startup should complete within {timeout:d} seconds")
 def step_verify_startup_timeout(context, timeout):
     """Verify startup completes within specified timeout."""
-    if context.config.get("smoke_test", True):
+    if getattr(context, "app_config", {}).get("smoke_test", True):
         # In smoke test mode, assume startup completed quickly
         startup_time = 2  # Simulated quick startup
         assert (
@@ -337,7 +339,7 @@ def step_verify_startup_timeout(context, timeout):
 @then("the shutdown should complete within {timeout:d} seconds")
 def step_verify_shutdown_timeout(context, timeout):
     """Verify shutdown completes within specified timeout."""
-    if context.config.get("smoke_test", True):
+    if getattr(context, "app_config", {}).get("smoke_test", True):
         # In smoke test mode, assume shutdown completed quickly
         shutdown_time = 3  # Simulated shutdown time
         assert (

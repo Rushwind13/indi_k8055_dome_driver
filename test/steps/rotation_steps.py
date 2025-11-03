@@ -189,7 +189,9 @@ def step_verify_dome_azimuth(context, azimuth):
     assert current is not None, "No dome position available"
     # allow small tolerance
     tolerance = (
-        context.config.get("azimuth_tolerance", 2) if hasattr(context, "config") else 2
+        context.app_config.get("azimuth_tolerance", 2)
+        if hasattr(context, "app_config") and isinstance(context.app_config, dict)
+        else 2
     )
     diff = abs(current - azimuth)
     if diff > 180:

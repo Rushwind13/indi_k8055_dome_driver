@@ -34,13 +34,13 @@ def step_hardware_configured(context):
     cfg.setdefault("hardware", {})
     cfg["hardware"]["mock_mode"] = True
     # expose to context for later initialization
-    context.config = cfg
+    context.app_config = cfg
 
 
 @when("I initialize the dome controller")
 def step_initialize_controller(context):
     # Use an existing config dict if the scenario provided one
-    cfg = getattr(context, "config", None)
+    cfg = getattr(context, "app_config", None)
     if cfg is None:
         # Load defaults from file if available; keep tests deterministic by
         # forcing mock mode unless explicitly set otherwise.
@@ -81,12 +81,12 @@ def step_assert_hw_connected(context):
 @given("the configuration file does not exist")
 def step_config_missing(context):
     # Force load_config to use defaults by passing a filename we expect not to exist
-    context.config = load_config("__this_file_should_not_exist__.json")
+    context.app_config = load_config("__this_file_should_not_exist__.json")
 
 
 @then("the dome should use default configuration")
 def step_assert_default_config(context):
-    cfg = getattr(context, "config", None)
+    cfg = getattr(context, "app_config", None)
     assert isinstance(cfg, dict), "Config should be a dict"
     # default should include the calibration section
     assert "calibration" in cfg
@@ -103,7 +103,7 @@ def step_warn_missing_config(context):
 def step_init_after_missing_config(context):
     # Initialize with the previously loaded default config, if not already
     if not hasattr(context, "dome"):
-        context.dome = Dome(context.config)
+        context.dome = Dome(context.app_config)
     assert context.dome is not None
 
 
@@ -112,7 +112,7 @@ def step_configure_mock_mode(context):
     cfg = load_config()
     cfg.setdefault("hardware", {})
     cfg["hardware"]["mock_mode"] = True
-    context.config = cfg
+    context.app_config = cfg
 
 
 @then("the dome should initialize in mock mode")
@@ -137,10 +137,10 @@ def step_assert_simulated_ops(context):
 def step_dome_initialized_running(context):
     # Ensure dome exists and simulate running state
     if not hasattr(context, "dome"):
-        context.config = load_config()
-        context.config.setdefault("hardware", {})
-        context.config["hardware"]["mock_mode"] = True
-        context.dome = Dome(context.config)
+        context.app_config = load_config()
+        context.app_config.setdefault("hardware", {})
+        context.app_config["hardware"]["mock_mode"] = True
+        context.dome = Dome(context.app_config)
     context.dome.is_turning = False
     context.running = True
 
@@ -155,7 +155,11 @@ def step_shutdown_controller(context):
     # mode — instead set the logical home state immediately. This prevents
     # tests from hanging if `dome.home()` blocks or waits for hardware.
     try:
-        smoke = bool(context.config.get("testing", {}).get("smoke_test", True))
+        smoke = bool(
+            getattr(context, "app_config", {})
+            .get("testing", {})
+            .get("smoke_test", True)
+        )
     except Exception:
         smoke = True
 

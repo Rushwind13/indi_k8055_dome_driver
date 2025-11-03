@@ -136,7 +136,9 @@ def step_message_shutter_already_open(context):
     # accept the lack of an explicit 'open' message.
     try:
         smoke = bool(
-            getattr(context, "config", {}).get("testing", {}).get("smoke_test", True)
+            getattr(context, "app_config", {})
+            .get("testing", {})
+            .get("smoke_test", True)
         )
     except Exception:
         smoke = True
@@ -162,7 +164,9 @@ def step_operation_complete_success(context):
     smoke_mode = True
     try:
         smoke_mode = bool(
-            getattr(context, "config", {}).get("testing", {}).get("smoke_test", True)
+            getattr(context, "app_config", {})
+            .get("testing", {})
+            .get("smoke_test", True)
         )
     except Exception:
         # If anything goes wrong fetching config, assume smoke mode to be
@@ -287,7 +291,7 @@ def step_command_shutter_open(context):
         return
 
     # If smoke mode, simulate operation quickly
-    if context.config.get("testing", {}).get("smoke_test", True):
+    if getattr(context, "app_config", {}).get("testing", {}).get("smoke_test", True):
         context.dome.is_opening = True
         context.dome.is_closing = False
         context.dome.shutter_position = "opening"
@@ -324,7 +328,7 @@ def step_command_shutter_close(context):
         context.errors.append("dome_not_home")
         return
 
-    if context.config.get("testing", {}).get("smoke_test", True):
+    if getattr(context, "app_config", {}).get("testing", {}).get("smoke_test", True):
         context.dome.is_closing = True
         context.dome.is_opening = False
         context.dome.shutter_position = "closing"

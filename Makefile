@@ -17,7 +17,6 @@ install: ## Install production dependencies
 install-dev: ## 🐌 Install all dependencies (production + development + test)
 	pip install -r requirements.txt
 	pip install -r requirements-dev.txt
-	pip install -e .
 
 test: ## Run all tests (integration, unit, doc, and BDD smoke tests)
 	@echo "🧪 Running comprehensive test suite..."

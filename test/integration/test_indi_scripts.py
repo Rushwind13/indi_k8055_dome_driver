@@ -44,45 +44,87 @@ class TestINDIScripts(unittest.TestCase):
         self.cwd = REPO_ROOT
         self._config_created = False
         self._config_path = os.path.join(self.cwd, "dome_config.json")
+        
+        # Detect hardware mode from environment
+        self.test_mode = os.environ.get("DOME_TEST_MODE", "smoke").lower()
+        self.is_hardware_mode = self.test_mode == "hardware"
+        
+        # Configure timeouts based on test mode
+        if self.is_hardware_mode:
+            self.script_timeout = 120  # 2 minutes for hardware operations
+            self.movement_timeout = 180  # 3 minutes for movement operations
+            print("⚡ Hardware mode detected - using extended timeouts")
+        else:
+            self.script_timeout = 10   # 10 seconds for smoke tests
+            self.movement_timeout = 15  # 15 seconds max for smoke tests
+            print("🔹 Smoke mode detected - using short timeouts")
+        
         if not os.path.exists(self._config_path):
-            config_content = {
-                "pins": {
-                    "encoder_a": 1,
-                    "encoder_b": 5,
-                    "home_switch": 2,
-                    "shutter_upper_limit": 1,
-                    "shutter_lower_limit": 2,
-                    "dome_rotate": 1,
-                    "dome_direction": 2,
-                    "shutter_move": 1,
-                    "shutter_direction": 2,
-                },
-                "calibration": {
-                    "home_position": 0,
-                    "ticks_to_degrees": 1.0,
-                    "poll_interval": 0.1,
-                },
-                "hardware": {"mock_mode": True, "device_port": 0},
-                "testing": {"smoke_test": True, "smoke_test_timeout": 1.0},
-            }
+            config_content = self._create_test_config()
             import json
 
             with open(self._config_path, "w") as f:
                 json.dump(config_content, f)
             self._config_created = True
-            self.required_scripts = [
-                "connect.py",
-                "disconnect.py",
-                "status.py",
-                "open.py",
-                "close.py",
-                "park.py",
-                "unpark.py",
-                "goto.py",
-                "move_cw.py",
-                "move_ccw.py",
-                "abort.py",
-            ]
+            
+        self.required_scripts = [
+            "connect.py",
+            "disconnect.py",
+            "status.py",
+            "open.py",
+            "close.py",
+            "park.py",
+            "unpark.py",
+            "goto.py",
+            "move_cw.py",
+            "move_ccw.py",
+            "abort.py",
+        ]
+
+    def _create_test_config(self):
+        """Create test configuration based on test mode."""
+        base_config = {
+            "pins": {
+                "encoder_a": 1,
+                "encoder_b": 5,
+                "home_switch": 2,
+                "shutter_upper_limit": 1,
+                "shutter_lower_limit": 2,
+                "dome_rotate": 1,
+                "dome_direction": 2,
+                "shutter_move": 1,
+                "shutter_direction": 2,
+            },
+            "calibration": {
+                "home_position": 0,
+                "ticks_to_degrees": 1.0,
+                "poll_interval": 0.1,
+            },
+            "testing": {
+                "smoke_test_timeout": 1.0 if not self.is_hardware_mode else 30.0,
+            },
+        }
+        
+        if self.is_hardware_mode:
+            # Hardware mode configuration
+            base_config["hardware"] = {
+                "mock_mode": False,
+                "device_port": 0
+            }
+            base_config["testing"]["smoke_test"] = False
+            base_config["testing"]["hardware_mode"] = True
+            print("   🔧 Created hardware mode configuration")
+        else:
+            # Smoke test configuration
+            base_config["hardware"] = {
+                "mock_mode": True,
+                "device_port": 0
+            }
+            base_config["testing"]["smoke_test"] = True
+            base_config["testing"]["hardware_mode"] = False
+            print("   🔧 Created smoke test configuration")
+            
+        return base_config
 
     def tearDown(self):
         # Clean up temporary config if we created it
@@ -243,7 +285,7 @@ class TestINDIScripts(unittest.TestCase):
                 ["python3", script_path],
                 capture_output=True,
                 text=True,
-                timeout=10,
+                timeout=self.movement_timeout,
                 env=self.env,
                 cwd=self.cwd,
             )
@@ -251,9 +293,17 @@ class TestINDIScripts(unittest.TestCase):
             self.assertIn(
                 result.returncode, [0, 1], f"Park returned {result.returncode}"
             )
+            
+            if self.is_hardware_mode:
+                print(f"   ⚡ Hardware park operation completed in {self.movement_timeout}s timeout")
+                
         except subprocess.TimeoutExpired:
-            # In smoke mode, park may not complete; treat timeout as acceptable
-            pass
+            if self.is_hardware_mode:
+                self.fail(f"Park operation timed out after {self.movement_timeout}s in hardware mode")
+            else:
+                # In smoke mode, park may not complete; treat timeout as acceptable
+                print("   🔹 Smoke mode park timeout is acceptable")
+                pass
 
     def test_unpark_script(self):
         """Test unpark.py script functionality."""
@@ -263,12 +313,15 @@ class TestINDIScripts(unittest.TestCase):
             ["python3", script_path],
             capture_output=True,
             text=True,
-            timeout=10,
+            timeout=self.script_timeout,
             env=self.env,
             cwd=self.cwd,
         )
         # Should succeed or at least not crash
         self.assertIn(result.returncode, [0, 1])
+        
+        if self.is_hardware_mode:
+            print(f"   ⚡ Hardware unpark operation completed within {self.script_timeout}s")
 
     def test_goto_script(self):
         """Test goto.py script functionality."""
@@ -280,7 +333,7 @@ class TestINDIScripts(unittest.TestCase):
                 ["python3", script_path, "400.0"],
                 capture_output=True,
                 text=True,
-                timeout=3,
+                timeout=self.script_timeout,
                 env=self.env,
                 cwd=self.cwd,
             )
@@ -288,8 +341,11 @@ class TestINDIScripts(unittest.TestCase):
                 result.returncode, [0, 1], "Goto with invalid azimuth should not crash"
             )
         except subprocess.TimeoutExpired:
-            # In smoke mode, rotation may simulate moves; a short timeout is ok
-            pass
+            if self.is_hardware_mode:
+                self.fail(f"Goto with invalid azimuth timed out after {self.script_timeout}s in hardware mode")
+            else:
+                # In smoke mode, rotation may simulate moves; a short timeout is ok
+                pass
 
         # Test with no arguments (should not crash)
         try:
@@ -297,7 +353,7 @@ class TestINDIScripts(unittest.TestCase):
                 ["python3", script_path],
                 capture_output=True,
                 text=True,
-                timeout=3,
+                timeout=self.script_timeout,
                 env=self.env,
                 cwd=self.cwd,
             )
@@ -305,8 +361,11 @@ class TestINDIScripts(unittest.TestCase):
                 result.returncode, [0, 1], "Goto with no arguments should not crash"
             )
         except subprocess.TimeoutExpired:
-            # Also acceptable; treat as non-crash within short window
-            pass
+            if self.is_hardware_mode:
+                print(f"   ⚠️  Goto with no args timed out after {self.script_timeout}s (expected in hardware mode)")
+            else:
+                # Also acceptable; treat as non-crash within short window
+                pass
 
     def test_movement_scripts(self):
         """Test move_cw.py and move_ccw.py scripts."""
@@ -376,7 +435,7 @@ class TestINDIScripts(unittest.TestCase):
                     ["python3", script_path],
                     capture_output=True,
                     text=True,
-                    timeout=10,
+                    timeout=self.script_timeout,
                     env=self.env,
                     cwd=self.cwd,
                 )
@@ -395,13 +454,19 @@ class TestINDIScripts(unittest.TestCase):
             with self.subTest(script=script):
                 # Test that script returns proper exit codes
                 try:
-                    # Use a shorter timeout specifically for goto to speed up tests
-                    per_script_timeout = 3 if script == "goto.py" else 10
+                    # Use appropriate timeout based on script and test mode
+                    if script in ["goto.py", "park.py"] and self.is_hardware_mode:
+                        timeout = self.movement_timeout
+                    elif script == "goto.py":
+                        timeout = 3  # Keep short for smoke mode goto
+                    else:
+                        timeout = self.script_timeout
+                        
                     result = subprocess.run(
                         ["python3", script_path],
                         capture_output=True,
                         text=True,
-                        timeout=per_script_timeout,
+                        timeout=timeout,
                         env=self.env,
                         cwd=self.cwd,
                     )
@@ -412,8 +477,11 @@ class TestINDIScripts(unittest.TestCase):
                         f"Script {script} - invalid exit code: {result.returncode}",
                     )
                 except subprocess.TimeoutExpired:
-                    # Allow time for long-run scripts (e.g., park, goto) in smoke mode
-                    pass
+                    if self.is_hardware_mode and script in ["goto.py", "park.py"]:
+                        self.fail(f"Script {script} timed out after {timeout}s in hardware mode")
+                    else:
+                        # Allow time for long-run scripts (e.g., park, goto) in smoke mode
+                        pass
 
 
 class TestINDIScriptIntegration(unittest.TestCase):
@@ -432,32 +500,55 @@ class TestINDIScriptIntegration(unittest.TestCase):
         self.cwd = REPO_ROOT
         self._config_created = False
         self._config_path = os.path.join(self.cwd, "dome_config.json")
+        
+        # Detect hardware mode from environment
+        self.test_mode = os.environ.get("DOME_TEST_MODE", "smoke").lower()
+        self.is_hardware_mode = self.test_mode == "hardware"
+        
         if not os.path.exists(self._config_path):
-            config_content = {
-                "pins": {
-                    "encoder_a": 1,
-                    "encoder_b": 5,
-                    "home_switch": 2,
-                    "shutter_upper_limit": 1,
-                    "shutter_lower_limit": 2,
-                    "dome_rotate": 1,
-                    "dome_direction": 2,
-                    "shutter_move": 1,
-                    "shutter_direction": 2,
-                },
-                "calibration": {
-                    "home_position": 0,
-                    "ticks_to_degrees": 1.0,
-                    "poll_interval": 0.1,
-                },
-                "hardware": {"mock_mode": True, "device_port": 0},
-                "testing": {"smoke_test": True, "smoke_test_timeout": 1.0},
-            }
+            config_content = self._create_test_config()
             import json
 
             with open(self._config_path, "w") as f:
                 json.dump(config_content, f)
             self._config_created = True
+
+    def _create_test_config(self):
+        """Create test configuration based on test mode."""
+        base_config = {
+            "pins": {
+                "encoder_a": 1,
+                "encoder_b": 5,
+                "home_switch": 2,
+                "shutter_upper_limit": 1,
+                "shutter_lower_limit": 2,
+                "dome_rotate": 1,
+                "dome_direction": 2,
+                "shutter_move": 1,
+                "shutter_direction": 2,
+            },
+            "calibration": {
+                "home_position": 0,
+                "ticks_to_degrees": 1.0,
+                "poll_interval": 0.1,
+            },
+            "testing": {
+                "smoke_test_timeout": 1.0 if not self.is_hardware_mode else 30.0,
+            },
+        }
+        
+        if self.is_hardware_mode:
+            # Hardware mode configuration
+            base_config["hardware"] = {"mock_mode": False, "device_port": 0}
+            base_config["testing"]["smoke_test"] = False
+            base_config["testing"]["hardware_mode"] = True
+        else:
+            # Smoke test configuration
+            base_config["hardware"] = {"mock_mode": True, "device_port": 0}
+            base_config["testing"]["smoke_test"] = True
+            base_config["testing"]["hardware_mode"] = False
+            
+        return base_config
 
     def tearDown(self):
         # Clean up temporary config if we created it

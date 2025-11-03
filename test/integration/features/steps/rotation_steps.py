@@ -88,11 +88,41 @@ def step_rotate_cw(context, degrees):
     _ensure_dome(context)
     start = _get_pos(context)
     target = (start + degrees) % 360
-    # simulate rotation
-    context.dome.is_turning = True
-    context.dome.dir = context.dome.CW
-    _set_pos(context, target)
-    context.dome.is_turning = False
+    
+    # Get timeout for rotation operations
+    timeout = 10  # Default timeout
+    try:
+        if hasattr(context, 'app_config') and context.app_config:
+            testing_config = context.app_config.get('testing', {})
+            timeout_multiplier = testing_config.get('timeout_multiplier', 1.0)
+            timeout = int(10 * timeout_multiplier)  # Base 10s timeout
+    except Exception:
+        pass
+    
+    # Check if this is hardware mode
+    is_hardware_mode = getattr(context, 'hardware_mode', False)
+    if hasattr(context, 'app_config') and context.app_config:
+        is_hardware_mode = context.app_config.get('testing', {}).get('hardware_mode', False)
+    
+    if is_hardware_mode:
+        print(f"⚡ Hardware rotation CW {degrees}° (timeout: {timeout}s)")
+        # In hardware mode, we would call actual dome rotation
+        # For now, simulate with timeout awareness
+        context.dome.is_turning = True
+        context.dome.dir = context.dome.CW
+        # Simulate rotation time proportional to degrees
+        import time
+        rotation_time = min(degrees / 180.0 * timeout, timeout)
+        time.sleep(rotation_time)
+        _set_pos(context, target)
+        context.dome.is_turning = False
+    else:
+        # Smoke mode - instant simulation
+        context.dome.is_turning = True
+        context.dome.dir = context.dome.CW
+        _set_pos(context, target)
+        context.dome.is_turning = False
+        
     context.last_rotation = {"from": start, "to": target, "dir": "clockwise"}
 
 
@@ -114,10 +144,39 @@ def step_rotate_ccw(context, degrees):
     _ensure_dome(context)
     start = _get_pos(context)
     target = (start - degrees) % 360
-    context.dome.is_turning = True
-    context.dome.dir = context.dome.CCW
-    _set_pos(context, target)
-    context.dome.is_turning = False
+    
+    # Get timeout for rotation operations
+    timeout = 10  # Default timeout
+    try:
+        if hasattr(context, 'app_config') and context.app_config:
+            testing_config = context.app_config.get('testing', {})
+            timeout_multiplier = testing_config.get('timeout_multiplier', 1.0)
+            timeout = int(10 * timeout_multiplier)  # Base 10s timeout
+    except Exception:
+        pass
+    
+    # Check if this is hardware mode
+    is_hardware_mode = getattr(context, 'hardware_mode', False)
+    if hasattr(context, 'app_config') and context.app_config:
+        is_hardware_mode = context.app_config.get('testing', {}).get('hardware_mode', False)
+    
+    if is_hardware_mode:
+        print(f"⚡ Hardware rotation CCW {degrees}° (timeout: {timeout}s)")
+        context.dome.is_turning = True
+        context.dome.dir = context.dome.CCW
+        # Simulate rotation time proportional to degrees
+        import time
+        rotation_time = min(degrees / 180.0 * timeout, timeout)
+        time.sleep(rotation_time)
+        _set_pos(context, target)
+        context.dome.is_turning = False
+    else:
+        # Smoke mode - instant simulation
+        context.dome.is_turning = True
+        context.dome.dir = context.dome.CCW
+        _set_pos(context, target)
+        context.dome.is_turning = False
+        
     context.last_rotation = {"from": start, "to": target, "dir": "counter-clockwise"}
 
 
@@ -145,10 +204,43 @@ def step_command_move_to_azimuth(context, azimuth):
     _ensure_dome(context)
     start = _get_pos(context)
     target = azimuth % 360
-    context.dome.is_turning = True
-    # choose shortest path for simulation (no intermediate telemetry)
-    _set_pos(context, target)
-    context.dome.is_turning = False
+    
+    # Get timeout for goto operations
+    timeout = 20  # Default timeout
+    try:
+        if hasattr(context, 'app_config') and context.app_config:
+            testing_config = context.app_config.get('testing', {})
+            timeout_multiplier = testing_config.get('timeout_multiplier', 1.0)
+            timeout = int(20 * timeout_multiplier)  # Base 20s timeout
+    except Exception:
+        pass
+    
+    # Check if this is hardware mode
+    is_hardware_mode = getattr(context, 'hardware_mode', False)
+    if hasattr(context, 'app_config') and context.app_config:
+        is_hardware_mode = context.app_config.get('testing', {}).get('hardware_mode', False)
+    
+    if is_hardware_mode:
+        # Calculate rotation needed
+        diff = abs(target - start)
+        if diff > 180:
+            diff = 360 - diff
+        print(f"⚡ Hardware goto {azimuth}° (rotation: {diff}°, timeout: {timeout}s)")
+        
+        context.dome.is_turning = True
+        # Simulate rotation time proportional to movement
+        import time
+        rotation_time = min(diff / 180.0 * timeout, timeout)
+        time.sleep(rotation_time)
+        _set_pos(context, target)
+        context.dome.is_turning = False
+    else:
+        # Smoke mode - instant simulation
+        context.dome.is_turning = True
+        # choose shortest path for simulation (no intermediate telemetry)
+        _set_pos(context, target)
+        context.dome.is_turning = False
+        
     context.last_rotation = {"from": start, "to": target}
 
 

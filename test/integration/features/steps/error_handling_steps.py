@@ -287,7 +287,7 @@ def step_system_safe_mode(context):
 def step_manual_intervention_required(context):
     """Verify manual intervention is required."""
     assert (
-        context.dome.manual_intervention_required == True
+        context.dome.manual_intervention_required
     ), "Manual intervention should be required"
     print(f"✅ Manual intervention required")
 
@@ -322,9 +322,7 @@ def step_movement_precision_reduced(context):
 @then("a service alert should be generated")
 def step_service_alert_generated(context):
     """Verify service alert was generated."""
-    assert (
-        context.dome.service_alert_pending == True
-    ), "Service alert should be generated"
+    assert context.dome.service_alert_pending, "Service alert should be generated"
     print(f"✅ Service alert generated")
 
 
@@ -362,7 +360,7 @@ def step_obstruction_error_reported(context):
 def step_emergency_procedures_activated(context):
     """Verify emergency procedures were activated."""
     assert (
-        context.dome.emergency_procedures_active == True
+        context.dome.emergency_procedures_active
     ), "Emergency procedures should be activated"
     print(f"✅ Emergency procedures activated")
 
@@ -371,7 +369,7 @@ def step_emergency_procedures_activated(context):
 def step_motor_operations_suspended(context):
     """Verify all motor operations were suspended."""
     assert (
-        context.dome.motor_operations_suspended == True
+        context.dome.motor_operations_suspended
     ), "Motor operations should be suspended"
     print(f"✅ All motor operations suspended")
 
@@ -401,7 +399,7 @@ def step_operations_resume_voltage_stable(context):
     context.dome.supply_voltage = 12.0
     context.dome.power_state = "normal"
     assert (
-        context.dome.can_resume_operations() == True
+        context.dome.can_resume_operations()
     ), "Operations should resume when voltage is stable"
     print(f"✅ Operations can resume when voltage is stable")
 
@@ -435,14 +433,14 @@ def step_emergency_safe_mode(context):
 @then("manual reset should be required to resume")
 def step_manual_reset_required(context):
     """Verify manual reset is required to resume."""
-    assert context.dome.manual_reset_required == True, "Manual reset should be required"
+    assert context.dome.manual_reset_required, "Manual reset should be required"
     print(f"✅ Manual reset required to resume")
 
 
 @then("safe default values should be used")
 def step_safe_defaults_used(context):
     """Verify safe default values are being used."""
-    assert context.dome.using_defaults == True, "Safe default values should be used"
+    assert context.dome.using_defaults, "Safe default values should be used"
     print(f"✅ Safe default values in use")
 
 
@@ -468,9 +466,7 @@ def step_system_still_operable(context):
 @then("manual configuration should be prompted")
 def step_manual_config_prompted(context):
     """Verify manual configuration is prompted."""
-    assert (
-        context.dome.manual_config_prompt == True
-    ), "Manual configuration should be prompted"
+    assert context.dome.manual_config_prompt, "Manual configuration should be prompted"
     print(f"✅ Manual configuration prompted")
 
 
@@ -505,17 +501,17 @@ def step_operator_notified(context):
 
 @then("the drift should be detected automatically")
 def step_drift_detected(context):
-    assert getattr(context.dome, "sensor_drift_detected", False) == True
+    assert getattr(context.dome, "sensor_drift_detected", False)
 
 
 @then("recalibration should be recommended")
 def step_recalibration_recommended(context):
-    assert getattr(context.dome, "manual_config_prompt", False) == True
+    assert getattr(context.dome, "manual_config_prompt", False)
 
 
 @then("temporary compensation should be applied")
 def step_temporary_compensation_applied(context):
-    assert getattr(context.dome, "temporary_compensation", False) == True
+    assert getattr(context.dome, "temporary_compensation", False)
 
 
 @then("accuracy warnings should be issued")
@@ -525,12 +521,12 @@ def step_accuracy_warnings_issued(context):
 
 @then("protective measures should be activated")
 def step_protective_measures_activated(context):
-    assert getattr(context.dome, "protective_measures_active", False) == True
+    assert getattr(context.dome, "protective_measures_active", False)
 
 
 @then("operations may be restricted or suspended")
 def step_operations_restricted_or_suspended(context):
-    assert getattr(context.dome, "motor_operations_suspended", False) == True
+    assert getattr(context.dome, "motor_operations_suspended", False)
 
 
 @then("environmental monitoring should be increased")

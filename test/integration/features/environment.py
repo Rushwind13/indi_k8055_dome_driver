@@ -2,14 +2,20 @@
 Behave configuration for dome control BDD tests.
 
 This file configures the test environment and provides setup/teardown hooks.
+Placed under test/integration/features so Behave auto-discovers it.
 """
 
 import os
 import sys
 import time
 
-# Add the parent directory to the path to import dome modules
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+# Ensure project root and indi_driver/lib are importable
+ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+LIB_DIR = os.path.join(ROOT_DIR, "indi_driver", "lib")
+if ROOT_DIR not in sys.path:
+    sys.path.insert(0, ROOT_DIR)
+if LIB_DIR not in sys.path:
+    sys.path.insert(0, LIB_DIR)
 
 
 def before_all(context):

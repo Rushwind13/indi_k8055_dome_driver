@@ -36,22 +36,30 @@ def run_integration_tests():
         original_cwd = os.getcwd()
         os.chdir(os.path.dirname(os.path.dirname(__file__)))
 
-        result = subprocess.run(
-            [sys.executable, "test/test_wrapper_integration.py"],
-            capture_output=True,
-            text=True,
-            timeout=60,
-        )
+        all_passed = True
+        files = [
+            "test/integration/test_wrapper_integration.py",
+            "test/integration/test_indi_scripts.py",
+        ]
+        for f in files:
+            print(f"  Running {f}...")
+            result = subprocess.run(
+                [sys.executable, f], capture_output=True, text=True, timeout=120
+            )
+            if result.returncode == 0:
+                print(result.stdout)
+                print(f"    ✅ {f} passed")
+            else:
+                print(f"    ❌ {f} failed:")
+                print(f"      stdout: {result.stdout[:400]}...")
+                print(f"      stderr: {result.stderr[:400]}...")
+                all_passed = False
 
-        if result.returncode == 0:
-            print(result.stdout)
+        if all_passed:
             print("✅ Integration tests passed")
-            return True
         else:
-            print("❌ Integration tests failed:")
-            print(f"stdout: {result.stdout}")
-            print(f"stderr: {result.stderr}")
-            return False
+            print("❌ Some integration tests failed")
+        return all_passed
 
     except subprocess.TimeoutExpired:
         print("❌ Integration tests timed out")
@@ -82,8 +90,8 @@ def run_unit_tests():
 
         # Run pytest on unit test files
         unit_test_files = [
-            "test/test_dome_units.py",
-            "test/test_safety_critical.py",
+            "test/unit/test_dome_units.py",
+            "test/unit/test_safety_critical.py",
         ]
 
         all_passed = True
@@ -133,7 +141,7 @@ def run_unit_tests():
 def run_doc_script_tests():
     """Run the documentation script tests."""
     script_dir = Path(__file__).parent
-    test_file = script_dir / "test_doc_scripts.py"
+    test_file = script_dir / "doc" / "test_doc_scripts.py"
 
     print("\n🔹 Running Documentation Script Tests...")
     print("-" * 60)
@@ -143,7 +151,15 @@ def run_doc_script_tests():
         return False
 
     try:
-        result = subprocess.run([sys.executable, str(test_file)], cwd=script_dir.parent)
+        # Ensure doc test process can import project modules
+        env = os.environ.copy()
+        lib_path = str(script_dir.parent / "indi_driver" / "lib")
+        existing_py = env.get("PYTHONPATH", "")
+        env["PYTHONPATH"] = lib_path + (os.pathsep + existing_py if existing_py else "")
+
+        result = subprocess.run(
+            [sys.executable, str(test_file)], cwd=script_dir.parent, env=env
+        )
         if result.returncode == 0:
             print("✅ Documentation script tests passed")
             return True
@@ -264,19 +280,20 @@ def run_behave_tests(args):
     cmd = ["python", "-m", "behave"]
 
     # Add feature filter if specified
+    features_root = script_dir / "integration" / "features"
     if args.feature:
-        feature_path = script_dir / "features" / f"{args.feature}.feature"
+        feature_path = features_root / f"{args.feature}.feature"
         if feature_path.exists():
             cmd.append(str(feature_path))
         else:
-            available_features = list((script_dir / "features").glob("*.feature"))
+            available_features = list(features_root.glob("*.feature"))
             feature_names = [f.stem for f in available_features]
             print(f"❌ Feature '{args.feature}' not found")
             print(f"   Available features: {', '.join(feature_names)}")
             return False
     else:
         # Run all features
-        cmd.append(str(script_dir / "features"))
+        cmd.append(str(features_root))
 
     # Add tag filter if specified
     if args.tag:
@@ -294,9 +311,9 @@ def run_behave_tests(args):
     if args.output:
         cmd.extend(["--outfile", args.output])
 
-    # Change to test directory
+    # Change to test integration directory for Behave
     original_cwd = os.getcwd()
-    os.chdir(script_dir)
+    os.chdir(features_root.parent)
 
     try:
         print(f"🚀 Running command: {' '.join(cmd)}")
@@ -345,7 +362,7 @@ def run_behave_tests(args):
 def list_features():
     """List available test features."""
     script_dir = Path(__file__).parent
-    features_dir = script_dir / "features"
+    features_dir = script_dir / "integration" / "features"
 
     if not features_dir.exists():
         print("❌ Features directory not found")

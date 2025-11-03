@@ -11,10 +11,9 @@ import sys
 import time
 from unittest.mock import MagicMock, Mock, patch
 
-# Add indi_driver/lib directory to path for imports
-sys.path.insert(
-    0, os.path.join(os.path.dirname(os.path.dirname(__file__)), "indi_driver", "lib")
-)
+# Add indi_driver/lib directory to path for imports (repo root)
+REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+sys.path.insert(0, os.path.join(REPO_ROOT, "indi_driver", "lib"))
 
 import dome  # noqa: E402
 import pyk8055_wrapper  # noqa: E402

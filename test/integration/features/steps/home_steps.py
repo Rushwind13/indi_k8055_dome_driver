@@ -15,9 +15,9 @@ if LIB not in sys.path:
 if ROOT not in sys.path:
     sys.path.insert(0, ROOT)
 
-from behave import given, then, when
-from config import load_config
-from dome import Dome
+from behave import given, then, when  # noqa: E402
+from config import load_config  # noqa: E402
+from dome import Dome  # noqa: E402
 
 
 @given("the dome position is being tracked")

@@ -164,7 +164,7 @@ def step_startup_timeout(context):
 @then("the system should power on successfully")
 def step_verify_power_on_success(context):
     """Verify system powered on successfully."""
-    assert context.dome_powered == True, "System should be powered on"
+    assert context.dome_powered, "System should be powered on"
     assert context.system_state in [
         "powering_on",
         "initializing",
@@ -199,8 +199,8 @@ def step_verify_subsystems_initialize(context):
 @then("the dome should be ready for operations")
 def step_verify_dome_ready(context):
     """Verify dome is ready for operations."""
-    assert context.dome.system_ready == True, "Dome should be ready for operations"
-    assert context.initialization_complete == True, "Initialization should be complete"
+    assert context.dome.system_ready, "Dome should be ready for operations"
+    assert context.initialization_complete, "Initialization should be complete"
     print(f"✅ Dome is ready for operations")
 
 
@@ -227,7 +227,7 @@ def step_verify_telemetry_active(context):
 @then("all active operations should stop gracefully")
 def step_verify_operations_stop_gracefully(context):
     """Verify all active operations stopped gracefully."""
-    assert context.dome.has_active_operations == False, "All operations should stop"
+    assert not context.dome.has_active_operations, "All operations should stop"
     assert context.dome.active_operation_count == 0, "Operation count should be zero"
     print(f"✅ All active operations stopped gracefully")
 
@@ -279,11 +279,9 @@ def step_verify_system_power_down(context):
 def step_verify_operations_halt_immediately(context):
     """Verify all operations halted immediately."""
     assert (
-        context.dome.has_active_operations == False
+        not context.dome.has_active_operations
     ), "All operations should halt immediately"
-    assert (
-        context.dome.emergency_shutdown_active == True
-    ), "Emergency shutdown should be active"
+    assert context.dome.emergency_shutdown_active, "Emergency shutdown should be active"
     print(f"🚨 All operations halted immediately")
 
 
@@ -299,7 +297,7 @@ def step_verify_critical_systems_powered(context):
 @then("startup should fail with timeout error")
 def step_verify_startup_timeout_error(context):
     """Verify startup failed with timeout error."""
-    assert context.startup_timeout == True, "Startup should timeout"
+    assert context.startup_timeout, "Startup should timeout"
     assert (
         context.system_state == "startup_failed"
     ), "System should be in startup failed state"

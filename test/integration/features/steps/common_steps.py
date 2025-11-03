@@ -13,9 +13,9 @@ import time
 # Add repository root so imports work regardless of invocation
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 
-from behave import given, step
-from config import load_config
-from dome import Dome
+from behave import given, step  # noqa: E402
+from config import load_config  # noqa: E402
+from dome import Dome  # noqa: E402
 
 
 @given("the dome controller is initialized")

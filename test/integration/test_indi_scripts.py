@@ -26,155 +26,26 @@ REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 sys.path.insert(0, os.path.join(REPO_ROOT, "indi_driver", "lib"))
 
 from dome import Dome  # noqa: E402
+from test_base import BaseINDIScriptTestCase  # noqa: E402
 
 
-class TestINDIScripts(unittest.TestCase):
+class TestINDIScripts(BaseINDIScriptTestCase):
     """Test suite for INDI dome script compliance and functionality."""
-
-    def setUp(self):
-        """Set up test environment."""
-        # Scripts live under repo_root/indi_driver/scripts
-        self.scripts_dir = os.path.join(REPO_ROOT, "indi_driver", "scripts")
-        # Ensure scripts can import project modules (e.g., dome, config)
-        self.env = os.environ.copy()
-        lib_path = os.path.join(REPO_ROOT, "indi_driver", "lib")
-        existing = self.env.get("PYTHONPATH", "")
-        self.env["PYTHONPATH"] = lib_path + (os.pathsep + existing if existing else "")
-        # Ensure scripts read a smoke-test config from repo root
-        self.cwd = REPO_ROOT
-        self._config_created = False
-        self._config_path = os.path.join(self.cwd, "dome_config.json")
-
-        # Detect hardware mode from environment
-        self.test_mode = os.environ.get("DOME_TEST_MODE", "smoke").lower()
-        self.is_hardware_mode = self.test_mode == "hardware"
-
-        # Configure timeouts based on test mode
-        if self.is_hardware_mode:
-            self.script_timeout = 120  # 2 minutes for hardware operations
-            self.movement_timeout = 180  # 3 minutes for movement operations
-            print("⚡ Hardware mode detected - using extended timeouts")
-        else:
-            self.script_timeout = 10  # 10 seconds for smoke tests
-            self.movement_timeout = 15  # 15 seconds max for smoke tests
-            print("🔹 Smoke mode detected - using short timeouts")
-
-        if not os.path.exists(self._config_path):
-            config_content = self._create_test_config()
-            import json
-
-            with open(self._config_path, "w") as f:
-                json.dump(config_content, f)
-            self._config_created = True
-
-        self.required_scripts = [
-            "connect.py",
-            "disconnect.py",
-            "status.py",
-            "open.py",
-            "close.py",
-            "park.py",
-            "unpark.py",
-            "goto.py",
-            "move_cw.py",
-            "move_ccw.py",
-            "abort.py",
-        ]
-
-    def _create_test_config(self):
-        """Create test configuration based on test mode."""
-        base_config = {
-            "pins": {
-                "encoder_a": 1,
-                "encoder_b": 5,
-                "home_switch": 2,
-                "shutter_upper_limit": 1,
-                "shutter_lower_limit": 2,
-                "dome_rotate": 1,
-                "dome_direction": 2,
-                "shutter_move": 1,
-                "shutter_direction": 2,
-            },
-            "calibration": {
-                "home_position": 0,
-                "ticks_to_degrees": 1.0,
-                "poll_interval": 0.1,
-            },
-            "testing": {
-                "smoke_test_timeout": 1.0 if not self.is_hardware_mode else 30.0,
-            },
-        }
-
-        if self.is_hardware_mode:
-            # Hardware mode configuration
-            base_config["hardware"] = {"mock_mode": False, "device_port": 0}
-            base_config["testing"]["smoke_test"] = False
-            base_config["testing"]["hardware_mode"] = True
-            print("   🔧 Created hardware mode configuration")
-        else:
-            # Smoke test configuration
-            base_config["hardware"] = {"mock_mode": True, "device_port": 0}
-            base_config["testing"]["smoke_test"] = True
-            base_config["testing"]["hardware_mode"] = False
-            print("   🔧 Created smoke test configuration")
-
-        return base_config
-
-    def tearDown(self):
-        # Enhanced cleanup for hardware mode
-        try:
-            # Execute safety cleanup for hardware mode
-            if self.is_hardware_mode:
-                print("🛑 Executing hardware safety cleanup...")
-                abort_script = os.path.join(self.scripts_dir, "abort.py")
-                if os.path.exists(abort_script):
-                    try:
-                        subprocess.run(
-                            ["python3", abort_script],
-                            timeout=5,
-                            env=self.env,
-                            cwd=self.cwd,
-                        )
-                        print("   ✅ Emergency stop executed")
-                    except Exception as e:
-                        print(f"   ⚠️ Emergency stop warning: {e}")
-
-            # Clean up temporary config if we created it
-            if getattr(self, "_config_created", False) and os.path.exists(
-                self._config_path
-            ):
-                os.remove(self._config_path)
-        except Exception as e:
-            print(f"⚠️ Warning during test cleanup: {e}")
 
     def test_aaa_basic_config_validation(self):
         """Basic configuration validation using existing infrastructure."""
-        print("\n🔍 Running basic configuration validation...")
-
-        # Use existing config loading infrastructure
-        from config import load_config
-
-        config = load_config()
-
-        # Basic validation for hardware mode only
-        if self.is_hardware_mode:
-            self.assertIn("hardware", config, "Hardware section required")
-            hardware = config["hardware"]
-            self.assertFalse(
-                hardware.get("mock_mode", True),
-                "Hardware mode requires mock_mode: false",
-            )
-            print("   ✅ Hardware configuration validation passed")
-        else:
-            print("   ✅ Mock mode - no additional validation needed")
+        self._basic_config_validation()
 
     def test_all_scripts_exist(self):
-        """Test that all 11 required INDI scripts exist."""
+        """Verify that all required scripts exist in scripts directory."""
+        print("\n📁 Checking script file existence...")
         for script in self.required_scripts:
-            script_path = os.path.join(self.scripts_dir, script)
-            self.assertTrue(
-                os.path.exists(script_path), f"Required INDI script missing: {script}"
-            )
+            with self.subTest(script=script):
+                script_path = os.path.join(self.scripts_dir, script)
+                self.assertTrue(
+                    os.path.exists(script_path),
+                    f"Script {script} missing at {script_path}",
+                )
 
     def test_all_scripts_executable(self):
         """Test that all scripts are executable."""
@@ -520,83 +391,6 @@ class TestINDIScripts(unittest.TestCase):
                         # Allow time for long-run scripts (e.g. park,goto) in smoke mode
                         pass
 
-
-class TestINDIScriptIntegration(unittest.TestCase):
-    """Integration tests for INDI scripts working together."""
-
-    def setUp(self):
-        """Set up test environment."""
-        # Scripts live under repo_root/indi_driver/scripts
-        self.scripts_dir = os.path.join(REPO_ROOT, "indi_driver", "scripts")
-        # Ensure scripts can import project modules (e.g., dome, config)
-        self.env = os.environ.copy()
-        lib_path = os.path.join(REPO_ROOT, "indi_driver", "lib")
-        existing = self.env.get("PYTHONPATH", "")
-        self.env["PYTHONPATH"] = lib_path + (os.pathsep + existing if existing else "")
-        # Ensure scripts read a smoke-test config from repo root
-        self.cwd = REPO_ROOT
-        self._config_created = False
-        self._config_path = os.path.join(self.cwd, "dome_config.json")
-
-        # Detect hardware mode from environment
-        self.test_mode = os.environ.get("DOME_TEST_MODE", "smoke").lower()
-        self.is_hardware_mode = self.test_mode == "hardware"
-
-        if not os.path.exists(self._config_path):
-            config_content = self._create_test_config()
-            import json
-
-            with open(self._config_path, "w") as f:
-                json.dump(config_content, f)
-            self._config_created = True
-
-    def _create_test_config(self):
-        """Create test configuration based on test mode."""
-        base_config = {
-            "pins": {
-                "encoder_a": 1,
-                "encoder_b": 5,
-                "home_switch": 2,
-                "shutter_upper_limit": 1,
-                "shutter_lower_limit": 2,
-                "dome_rotate": 1,
-                "dome_direction": 2,
-                "shutter_move": 1,
-                "shutter_direction": 2,
-            },
-            "calibration": {
-                "home_position": 0,
-                "ticks_to_degrees": 1.0,
-                "poll_interval": 0.1,
-            },
-            "testing": {
-                "smoke_test_timeout": 1.0 if not self.is_hardware_mode else 30.0,
-            },
-        }
-
-        if self.is_hardware_mode:
-            # Hardware mode configuration
-            base_config["hardware"] = {"mock_mode": False, "device_port": 0}
-            base_config["testing"]["smoke_test"] = False
-            base_config["testing"]["hardware_mode"] = True
-        else:
-            # Smoke test configuration
-            base_config["hardware"] = {"mock_mode": True, "device_port": 0}
-            base_config["testing"]["smoke_test"] = True
-            base_config["testing"]["hardware_mode"] = False
-
-        return base_config
-
-    def tearDown(self):
-        # Clean up temporary config if we created it
-        try:
-            if getattr(self, "_config_created", False) and os.path.exists(
-                self._config_path
-            ):
-                os.remove(self._config_path)
-        except Exception:
-            pass
-
     def test_full_operation_sequence(self):
         """Test a complete dome operation sequence using INDI scripts."""
         raise unittest.SkipTest("Skipping full INDI script sequence in smoke mode")
@@ -617,7 +411,6 @@ def run_indi_script_tests():
 
     # Add test classes
     suite.addTests(loader.loadTestsFromTestCase(TestINDIScripts))
-    suite.addTests(loader.loadTestsFromTestCase(TestINDIScriptIntegration))
 
     # Run tests
     runner = unittest.TextTestRunner(verbosity=2)

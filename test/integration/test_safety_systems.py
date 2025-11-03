@@ -23,99 +23,11 @@ REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 sys.path.insert(0, os.path.join(REPO_ROOT, "indi_driver", "lib"))
 
 from dome import Dome  # noqa: E402
+from test_base import BaseSafetyTestCase  # noqa: E402
 
 
-class TestSafetySystems(unittest.TestCase):
+class TestSafetySystems(BaseSafetyTestCase):
     """Test suite for safety system functionality."""
-
-    def setUp(self):
-        """Set up test environment."""
-        # Scripts live under repo_root/indi_driver/scripts
-        self.scripts_dir = os.path.join(REPO_ROOT, "indi_driver", "scripts")
-        # Ensure scripts can import project modules
-        self.env = os.environ.copy()
-        lib_path = os.path.join(REPO_ROOT, "indi_driver", "lib")
-        existing = self.env.get("PYTHONPATH", "")
-        self.env["PYTHONPATH"] = lib_path + (os.pathsep + existing if existing else "")
-        self.cwd = REPO_ROOT
-
-        # Detect test mode
-        self.test_mode = os.environ.get("DOME_TEST_MODE", "smoke").lower()
-        self.is_hardware_mode = self.test_mode == "hardware"
-
-        # Create test configuration
-        self._config_created = False
-        self._config_path = os.path.join(self.cwd, "dome_config.json")
-        if not os.path.exists(self._config_path):
-            config_content = self._create_safety_test_config()
-            import json
-
-            with open(self._config_path, "w") as f:
-                json.dump(config_content, f)
-            self._config_created = True
-
-    def _create_safety_test_config(self):
-        """Create safety test configuration."""
-        base_config = {
-            "pins": {
-                "encoder_a": 1,
-                "encoder_b": 5,
-                "home_switch": 2,
-                "shutter_upper_limit": 1,
-                "shutter_lower_limit": 2,
-                "dome_rotate": 1,
-                "dome_direction": 2,
-                "shutter_move": 1,
-                "shutter_direction": 2,
-            },
-            "calibration": {
-                "home_position": 0,
-                "ticks_to_degrees": 1.0,
-                "poll_interval": 0.1,
-            },
-            "safety": {
-                "emergency_stop_timeout": 2.0,
-                "operation_timeout": 30.0 if self.is_hardware_mode else 5.0,
-                "max_rotation_time": 120.0 if self.is_hardware_mode else 10.0,
-                "max_shutter_time": 60.0 if self.is_hardware_mode else 5.0,
-            },
-            "testing": {
-                "smoke_test_timeout": 1.0 if not self.is_hardware_mode else 30.0,
-                "timeout_multiplier": 30.0 if self.is_hardware_mode else 1.0,
-                "hardware_mode": self.is_hardware_mode,
-                "smoke_test": not self.is_hardware_mode,
-            },
-        }
-
-        if self.is_hardware_mode:
-            base_config["hardware"] = {"mock_mode": False, "device_port": 0}
-        else:
-            base_config["hardware"] = {"mock_mode": True, "device_port": 0}
-
-        return base_config
-
-    def tearDown(self):
-        """Clean up test environment with safety measures."""
-        try:
-            # Always run abort script in teardown for safety
-            abort_script = os.path.join(self.scripts_dir, "abort.py")
-            if os.path.exists(abort_script):
-                subprocess.run(
-                    ["python3", abort_script],
-                    capture_output=True,
-                    env=self.env,
-                    cwd=self.cwd,
-                    timeout=5,
-                )
-
-            # Clean up config file
-            if getattr(self, "_config_created", False) and os.path.exists(
-                self._config_path
-            ):
-                os.remove(self._config_path)
-        except Exception:
-            # Never fail teardown
-            pass
 
     def test_abort_script_availability(self):
         """Test that abort script exists and is executable."""

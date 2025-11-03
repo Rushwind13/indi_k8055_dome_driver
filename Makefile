@@ -149,6 +149,25 @@ clean: ## 🏎️ Clean up build artifacts and cache files
 	find . -type d -name "*.egg-info" -exec rm -rf {} + || true
 	rm -rf build/ dist/ .coverage coverage.xml .pytest_cache/ .mypy_cache/
 
+check-k8055: ## 🔌 Check if libk8055 library is available
+	@echo "🔌 Checking libk8055 availability..."
+	@python3 -c "import pyk8055; print('✅ libk8055 available')" || (echo "❌ libk8055 not available - install libk8055 and pyk8055 bindings" && exit 1)
+
+hardware-test-connect: ## 🔌 Test hardware connection via connect script
+	@python3 hardware_test_helper.py connect
+
+hardware-test-status: ## 📊 Test status script output format
+	@python3 hardware_test_helper.py status
+
+hardware-sysinfo: ## 📋 Create system information snapshot
+	@python3 hardware_test_helper.py sysinfo
+
+hardware-indi-config: ## ⚙️ Setup INDI driver configuration
+	@python3 hardware_test_helper.py indi-config
+
+hardware-test-all: ## 🧪 Run all hardware integration helper tests
+	@python3 hardware_test_helper.py all
+
 venv: ## Create virtual environment (if not exists)
 	python3 -m venv venv
 	@echo "Virtual environment created. Activate with: source venv/bin/activate"

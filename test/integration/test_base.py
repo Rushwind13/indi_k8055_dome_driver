@@ -14,6 +14,7 @@ import json
 import os
 import subprocess
 import sys
+import time
 import unittest
 
 # Add indi_driver/lib directory for imports (repo root)
@@ -152,6 +153,62 @@ class BaseTestCase(unittest.TestCase):
             env=self.env,
             cwd=self.cwd,
         )
+
+    def _capture_calibration_data(
+        self, operation, expected_result, actual_result, timing_data=None
+    ):
+        """Capture calibration data for hardware validation.
+
+        Args:
+            operation: Description of operation performed
+            expected_result: Expected position/state
+            actual_result: Actual position/state achieved
+            timing_data: Optional dict with timing measurements
+        """
+        if not self.is_hardware_mode:
+            return  # Only capture data in hardware mode
+
+        calibration_log = getattr(self, "_calibration_log", [])
+
+        entry = {
+            "timestamp": time.time(),
+            "operation": operation,
+            "expected": expected_result,
+            "actual": actual_result,
+            "error": abs(actual_result - expected_result)
+            if isinstance(actual_result, (int, float))
+            else None,
+        }
+
+        if timing_data:
+            entry["timing"] = timing_data
+
+        calibration_log.append(entry)
+        self._calibration_log = calibration_log
+
+        # Log to console for immediate feedback
+        if entry["error"] is not None:
+            print(f"📊 Calibration: {operation} - Error: {entry['error']:.2f}°")
+        else:
+            print(f"📊 Calibration: {operation} - Logged")
+
+    def _measure_operation_timing(self, operation_func, *args, **kwargs):
+        """Measure timing for an operation and return result with timing data.
+
+        Returns:
+            tuple: (operation_result, timing_dict)
+        """
+        start_time = time.time()
+        result = operation_func(*args, **kwargs)
+        end_time = time.time()
+
+        timing_data = {
+            "duration": end_time - start_time,
+            "start_time": start_time,
+            "end_time": end_time,
+        }
+
+        return result, timing_data
 
 
 class BaseINDIScriptTestCase(BaseTestCase):

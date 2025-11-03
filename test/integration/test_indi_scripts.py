@@ -395,6 +395,245 @@ class TestINDIScripts(BaseINDIScriptTestCase):
         """Test a complete dome operation sequence using INDI scripts."""
         raise unittest.SkipTest("Skipping full INDI script sequence in smoke mode")
 
+    def test_calibration_position_accuracy(self):
+        """Test and capture position accuracy data for calibration.
+
+        This test validates goto positioning accuracy and captures
+        calibration data for hardware tuning when in hardware mode.
+        """
+        if not self.is_hardware_mode:
+            self.skipTest("Calibration data capture only runs in hardware mode")
+
+        print("\n📊 Capturing position accuracy calibration data...")
+
+        # Test positions for accuracy measurement
+        test_positions = [0, 90, 180, 270, 45, 135, 225, 315]
+
+        for target_position in test_positions:
+            with self.subTest(position=target_position):
+                print(f"   Testing goto {target_position}°...")
+
+                # Measure goto operation timing
+                def goto_operation():
+                    return self._run_script_safely("goto.py", [str(target_position)])
+
+                result, timing_data = self._measure_operation_timing(goto_operation)
+
+                self.assertEqual(
+                    result.returncode,
+                    0,
+                    f"Goto {target_position}° failed: {result.stderr}",
+                )
+
+                # Get actual position via status script
+                status_result = self._run_script_safely("status.py")
+                self.assertEqual(status_result.returncode, 0, "Status check failed")
+
+                # Parse actual position from status output
+                # Status format: "Azimuth: 123.4°"
+                actual_position = self._parse_position_from_status(status_result.stdout)
+
+                # Capture calibration data
+                self._capture_calibration_data(
+                    f"goto_{target_position}",
+                    target_position,
+                    actual_position,
+                    timing_data,
+                )
+
+                # Validate within expected tolerance (larger tolerance for hardware)
+                tolerance = 3.0  # 3 degrees for hardware validation
+                position_error = abs(actual_position - target_position)
+                if position_error > 180:
+                    position_error = 360 - position_error
+
+                self.assertLessEqual(
+                    position_error,
+                    tolerance,
+                    f"Position error {position_error:.1f}° exceeds "
+                    f"tolerance {tolerance}°",
+                )
+
+        # Report calibration summary
+        self._report_calibration_summary()
+
+    def test_calibration_home_repeatability(self):
+        """Test and capture home position repeatability data."""
+        if not self.is_hardware_mode:
+            self.skipTest("Calibration data capture only runs in hardware mode")
+
+        print("\n📊 Capturing home position repeatability data...")
+
+        home_positions = []
+        num_trials = 5  # Multiple home operations to test repeatability
+
+        for trial in range(num_trials):
+            print(f"   Home trial {trial + 1}/{num_trials}...")
+
+            # Move away from home first
+            self._run_script_safely("goto.py", ["90"])
+            time.sleep(1)  # Brief pause
+
+            # Execute park operation and measure timing
+            def park_operation():
+                return self._run_script_safely("park.py")
+
+            result, timing_data = self._measure_operation_timing(park_operation)
+
+            self.assertEqual(result.returncode, 0, f"Park trial {trial + 1} failed")
+
+            # Get home position
+            status_result = self._run_script_safely("status.py")
+            actual_position = self._parse_position_from_status(status_result.stdout)
+            home_positions.append(actual_position)
+
+            # Capture calibration data
+            self._capture_calibration_data(
+                f"home_trial_{trial + 1}",
+                0.0,  # Expected home position
+                actual_position,
+                timing_data,
+            )
+
+        # Calculate home repeatability statistics
+        if len(home_positions) > 1:
+            import statistics
+
+            mean_home = statistics.mean(home_positions)
+            std_dev = statistics.stdev(home_positions)
+            max_deviation = max(abs(pos - mean_home) for pos in home_positions)
+
+            print(
+                f"   📊 Home repeatability: mean={mean_home:.2f}°, "
+                f"std={std_dev:.2f}°, max_dev={max_deviation:.2f}°"
+            )
+
+            # Log repeatability data
+            self._capture_calibration_data(
+                "home_repeatability_summary",
+                0.0,
+                mean_home,
+                {
+                    "std_deviation": std_dev,
+                    "max_deviation": max_deviation,
+                    "num_trials": num_trials,
+                    "all_positions": home_positions,
+                },
+            )
+
+    def test_calibration_rotation_timing(self):
+        """Test and capture rotation timing data for timeout calibration."""
+        if not self.is_hardware_mode:
+            self.skipTest("Calibration data capture only runs in hardware mode")
+
+        print("\n📊 Capturing rotation timing calibration data...")
+
+        # Test different rotation amounts
+        rotation_tests = [
+            (90, "move_cw.py"),
+            (45, "move_cw.py"),
+            (180, "move_cw.py"),
+            (90, "move_ccw.py"),
+        ]
+
+        for rotation_amount, script in rotation_tests:
+            print(f"   Testing {script} {rotation_amount}°...")
+
+            # Get initial position
+            status_result = self._run_script_safely("status.py")
+            initial_pos = self._parse_position_from_status(status_result.stdout)
+
+            # Measure rotation timing
+            def rotation_operation():
+                return self._run_script_safely(script, [str(rotation_amount)])
+
+            result, timing_data = self._measure_operation_timing(rotation_operation)
+
+            self.assertEqual(
+                result.returncode, 0, f"Rotation {script} {rotation_amount}° failed"
+            )
+
+            # Get final position
+            status_result = self._run_script_safely("status.py")
+            final_pos = self._parse_position_from_status(status_result.stdout)
+
+            # Calculate actual rotation
+            if "cw" in script:
+                expected_final = (initial_pos + rotation_amount) % 360
+            else:
+                expected_final = (initial_pos - rotation_amount) % 360
+
+            # Capture timing calibration data
+            self._capture_calibration_data(
+                f"rotation_{script}_{rotation_amount}deg",
+                expected_final,
+                final_pos,
+                {
+                    **timing_data,
+                    "rotation_amount": rotation_amount,
+                    "rotation_direction": script,
+                    "degrees_per_second": rotation_amount / timing_data["duration"],
+                },
+            )
+
+    def _parse_position_from_status(self, status_output):
+        """Parse azimuth position from status script output."""
+        for line in status_output.split("\n"):
+            if "Azimuth:" in line:
+                # Extract number from "Azimuth: 123.4°" format
+                import re
+
+                match = re.search(r"Azimuth:\s*([\d.-]+)", line)
+                if match:
+                    return float(match.group(1))
+        raise ValueError(
+            f"Could not parse position from status output: {status_output}"
+        )
+
+    def _report_calibration_summary(self):
+        """Generate a summary report of captured calibration data."""
+        if not hasattr(self, "_calibration_log") or not self._calibration_log:
+            return
+
+        print("\n📋 CALIBRATION DATA SUMMARY")
+        print("=" * 50)
+
+        position_errors = [
+            entry["error"]
+            for entry in self._calibration_log
+            if entry["error"] is not None
+        ]
+
+        if position_errors:
+            import statistics
+
+            mean_error = statistics.mean(position_errors)
+            max_error = max(position_errors)
+
+            print(f"Position Accuracy:")
+            print(f"  Mean error: {mean_error:.2f}°")
+            print(f"  Max error:  {max_error:.2f}°")
+            print(f"  Samples:    {len(position_errors)}")
+
+        timing_data = [
+            entry["timing"]["duration"]
+            for entry in self._calibration_log
+            if "timing" in entry and "duration" in entry["timing"]
+        ]
+
+        if timing_data:
+            import statistics
+
+            mean_time = statistics.mean(timing_data)
+            max_time = max(timing_data)
+
+            print(f"Operation Timing:")
+            print(f"  Mean time:  {mean_time:.2f}s")
+            print(f"  Max time:   {max_time:.2f}s")
+            print(f"  Samples:    {len(timing_data)}")
+
+        print("=" * 50)
+
 
 def run_indi_script_tests():
     """Run the INDI script test suite."""

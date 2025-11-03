@@ -6,6 +6,7 @@ logical position and state without requiring real hardware.
 
 import os
 import sys
+import time
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 LIB = os.path.join(ROOT, "indi_driver", "lib")
@@ -81,6 +82,49 @@ def _assert_position_within_tolerance(
     )
 
 
+def _capture_bdd_calibration_data(
+    context, operation, expected, actual, timing_data=None
+):
+    """Capture calibration data from BDD steps when in hardware mode."""
+    # Only capture calibration data in hardware mode
+    if not getattr(context, "hardware_mode", False):
+        return
+
+    calibration_log = getattr(context, "calibration_log", [])
+
+    entry = {
+        "timestamp": time.time(),
+        "operation": operation,
+        "expected": expected,
+        "actual": actual,
+        "error": abs(actual - expected) if isinstance(actual, (int, float)) else None,
+        "source": "bdd_rotation_steps",
+    }
+
+    if timing_data:
+        entry["timing"] = timing_data
+
+    calibration_log.append(entry)
+    context.calibration_log = calibration_log
+
+    # Log to console for immediate feedback in hardware mode
+    if entry["error"] is not None and getattr(context, "hardware_mode", False):
+        print(f"📊 BDD Calibration: {operation} - Error: {entry['error']:.2f}°")
+
+
+def _measure_bdd_operation_timing(operation_func):
+    """Measure timing for BDD operations."""
+    start_time = time.time()
+    result = operation_func()
+    end_time = time.time()
+
+    return result, {
+        "duration": end_time - start_time,
+        "start_time": start_time,
+        "end_time": end_time,
+    }
+
+
 @given("the dome is in a known state")
 def step_dome_known_state(context):
     _ensure_dome(context)
@@ -123,32 +167,42 @@ def step_rotate_cw(context, degrees):
     except Exception:
         pass
 
-    # Check if this is hardware mode
+    # Check for hardware mode
     is_hardware_mode = getattr(context, "hardware_mode", False)
     if hasattr(context, "app_config") and context.app_config:
         is_hardware_mode = context.app_config.get("testing", {}).get(
             "hardware_mode", False
         )
 
-    if is_hardware_mode:
-        print(f"⚡ Hardware rotation CW {degrees}° (timeout: {timeout}s)")
-        # In hardware mode, we would call actual dome rotation
-        # For now, simulate with timeout awareness
-        context.dome.is_turning = True
-        context.dome.dir = context.dome.CW
-        # Simulate rotation time proportional to degrees
-        import time
+    # Measure rotation timing for calibration
+    def perform_rotation():
+        if is_hardware_mode:
+            print(f"⚡ Hardware rotation CW {degrees}° (timeout: {timeout}s)")
+            # In hardware mode, we would call actual dome rotation
+            # For now, simulate with timeout awareness
+            context.dome.is_turning = True
+            context.dome.dir = context.dome.CW
+            # Simulate rotation time proportional to degrees
+            import time
 
-        rotation_time = min(degrees / 180.0 * timeout, timeout)
-        time.sleep(rotation_time)
+            rotation_time = min(degrees / 180.0 * timeout, timeout)
+            time.sleep(rotation_time)
+        else:
+            # simulate rotation
+            context.dome.is_turning = True
+            context.dome.dir = context.dome.CW
+
         _set_pos(context, target)
         context.dome.is_turning = False
-    else:
-        # Smoke mode - instant simulation
-        context.dome.is_turning = True
-        context.dome.dir = context.dome.CW
-        _set_pos(context, target)
-        context.dome.is_turning = False
+        return target
+
+    # Measure timing and capture calibration data
+    result, timing_data = _measure_bdd_operation_timing(perform_rotation)
+
+    # Capture calibration data for hardware mode
+    _capture_bdd_calibration_data(
+        context, f"rotate_cw_{degrees}deg", target, _get_pos(context), timing_data
+    )
 
     context.last_rotation = {"from": start, "to": target, "dir": "clockwise"}
 
@@ -266,27 +320,40 @@ def step_command_move_to_azimuth(context, azimuth):
             "hardware_mode", False
         )
 
-    if is_hardware_mode:
-        # Calculate rotation needed
-        diff = abs(target - start)
-        if diff > 180:
-            diff = 360 - diff
-        print(f"⚡ Hardware goto {azimuth}° (rotation: {diff}°, timeout: {timeout}s)")
+    # Measure goto timing for calibration
+    def perform_goto():
+        if is_hardware_mode:
+            # Calculate rotation needed
+            diff = abs(target - start)
+            if diff > 180:
+                diff = 360 - diff
+            print(
+                f"⚡ Hardware goto {azimuth}° (rotation: {diff}°, timeout: {timeout}s)"
+            )
 
-        context.dome.is_turning = True
-        # Simulate rotation time proportional to movement
-        import time
+            context.dome.is_turning = True
+            # Simulate rotation time proportional to movement
+            import time
 
-        rotation_time = min(diff / 180.0 * timeout, timeout)
-        time.sleep(rotation_time)
-        _set_pos(context, target)
-        context.dome.is_turning = False
-    else:
-        # Smoke mode - instant simulation
-        context.dome.is_turning = True
-        # choose shortest path for simulation (no intermediate telemetry)
-        _set_pos(context, target)
-        context.dome.is_turning = False
+            rotation_time = min(diff / 180.0 * timeout, timeout)
+            time.sleep(rotation_time)
+            _set_pos(context, target)
+            context.dome.is_turning = False
+        else:
+            # Smoke mode - instant simulation
+            context.dome.is_turning = True
+            # choose shortest path for simulation (no intermediate telemetry)
+            _set_pos(context, target)
+            context.dome.is_turning = False
+        return target
+
+    # Measure timing and capture calibration data
+    result, timing_data = _measure_bdd_operation_timing(perform_goto)
+
+    # Capture calibration data for hardware mode
+    _capture_bdd_calibration_data(
+        context, f"goto_{azimuth}deg", target, _get_pos(context), timing_data
+    )
 
     context.last_rotation = {"from": start, "to": target}
 

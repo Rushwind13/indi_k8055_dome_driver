@@ -115,6 +115,24 @@ test-full: ## 🐌 Run all tests including pre-commit checks and detailed covera
 	coverage html -d htmlcov_integration
 	@echo "📊 Coverage reports: htmlcov/ (unit) and htmlcov_integration/ (integration)"
 
+test-calibrate: ## 🎯 Run calibration data capture tests (hardware mode only)
+	@echo "📊 Running calibration data capture tests..."
+	@echo "⚠️  WARNING: This target only works in HARDWARE mode!"
+	@echo "ℹ️  Set DOME_TEST_MODE=hardware to capture real calibration data"
+	@if [ "$(DOME_TEST_MODE)" != "hardware" ]; then \
+		echo "❌ Calibration tests require DOME_TEST_MODE=hardware"; \
+		echo "💡 Usage: DOME_TEST_MODE=hardware make test-calibrate"; \
+		exit 1; \
+	fi
+	@echo "🔧 Running calibration-specific INDI script tests..."
+	python -m pytest test/integration/test_indi_scripts.py::TestINDIScripts::test_calibration_position_accuracy -v
+	python -m pytest test/integration/test_indi_scripts.py::TestINDIScripts::test_calibration_home_repeatability -v
+	python -m pytest test/integration/test_indi_scripts.py::TestINDIScripts::test_calibration_rotation_timing -v
+	@echo "🔧 Running calibration-enhanced BDD rotation tests..."
+	python test/run_tests.py --feature dome_rotation --mode hardware --yes
+	@echo "📋 Calibration data capture complete!"
+	@echo "💡 Check test output above for calibration statistics and recommendations"
+
 lint: ## Run all linting checks
 	@echo "🔍 Running code quality checks..."
 	flake8 .

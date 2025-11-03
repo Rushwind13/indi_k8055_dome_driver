@@ -25,6 +25,13 @@ share/python-wheels/
 .installed.cfg
 *.egg
 
+# Testing and coverage
+.coverage
+.coverage.*
+htmlcov/
+.pytest_cache/
+coverage.xml
+
 # Virtual environments
 venv/
 env/

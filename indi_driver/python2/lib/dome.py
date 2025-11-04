@@ -111,8 +111,9 @@ class Dome:
             # rotate until home switch triggers
             self.home()
         else:
-            # rotate by "amount" degrees
-            self.rotation(-amount)
+            # rotate by "amount" degrees.
+            # amount == time to rotate
+            self.rotation(amount)
 
     # Default to relay "off"
     def set_rotation(self, dir):
@@ -269,6 +270,7 @@ class Dome:
         """
         print("Stopping dome rotation...")
         self.dome.digital_off(self.DOME_ROTATE)
+        self.dome.digital_off(self.DOME_DIR)
         self.is_turning = False
         print("Dome rotation stopped.")
 
@@ -278,6 +280,7 @@ class Dome:
         """
         print("Stopping shutter movement...")
         self.dome.digital_off(self.SHUTTER_MOVE)
+        self.dome.digital_off(self.SHUTTER_DIR)
         self.is_opening = False
         self.is_closing = False
         print("Shutter movement stopped.")

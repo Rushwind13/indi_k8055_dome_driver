@@ -1,12 +1,13 @@
 # INDI K8055 Dome Driver
 
-**Production-ready INDI dome driver for Velleman K8055-based observatory dome controllers.**
+**Production-ready INDI dome driver for Velleman K8055-based observatory dome controllers with Python 2.7 support.**
 
 ## 🚀 For Users
 
 **New to this driver?** Start here:
 - **[Installation Guide](doc/Installation_Guide.md)** - Complete setup on Raspberry Pi
 - **[User Guide](doc/User_Guide.md)** - Day-to-day operation and configuration
+- **[Python 2.7 Validation Guide](doc/py27_validation/Python27_Validation_Guide.md)** - Legacy Python support
 - **[Troubleshooting Guide](doc/Troubleshooting_Guide.md)** - Problem diagnosis and solutions
 
 ## 🎯 Quick Start
@@ -28,19 +29,47 @@ Close shutter script: close.py
 Abort motion script: abort.py
 ```
 
+**Python 2.7 Users:** Use `/indi_driver/python2/scripts/` instead.
+
+## 🐍 Python 2.7 Support
+
+Complete Python 2.7 compatibility with state persistence:
+
+```bash
+# Validate Python 2.7 installation
+make test-py27
+
+# Complete validation with linting
+make test-py27-full
+
+# Deploy to Python 2.7 system
+cp -r indi_driver/python2/ /target/path/
+```
+
+**Key Features:**
+- ✅ Full dome control functionality
+- ✅ State persistence between script executions
+- ✅ All sensor states preserved (position, encoders, home, shutter)
+- ✅ Python 2.7 compatible syntax (no f-strings, modern features)
+- ✅ Comprehensive test suite
+
 ## 🏗️ Architecture
 
 ```
 INDI dome_script ← indi_driver/scripts/ ← lib/dome.py ← lib/pyk8055_wrapper.py ← K8055 Hardware
+                 ← indi_driver/python2/scripts/ (Python 2.7 compatible)
 ```
 
-The driver automatically switches between mock mode (development) and hardware mode (production) based on configuration.
+The driver automatically switches between mock mode (development) and hardware mode (production) based on configuration. Python 2.7 version includes comprehensive state persistence system.
 
 ## 🧪 Testing
 
 ```bash
-# Quick development test
+# Quick development test (Python 3)
 python test/run_tests.py --mode smoke
+
+# Python 2.7 validation
+make test-py27
 
 # Hardware validation (after installation)
 export DOME_TEST_MODE=hardware

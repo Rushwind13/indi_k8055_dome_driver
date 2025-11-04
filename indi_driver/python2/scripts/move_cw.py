@@ -12,11 +12,17 @@ def main():
         0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "lib")
     )
     from dome import Dome
+    from persistence import restore_state, save_state
 
     try:
         dome = Dome()
+        # Restore previous state
+        restore_state(dome)
+
         try:
             dome.cw()
+            # Save state after movement
+            save_state(dome, "move_cw")
             sys.exit(0)
         except Exception:
             sys.exit(1)

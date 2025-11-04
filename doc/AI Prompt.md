@@ -176,3 +176,11 @@ All tests in run_tests.py pass using the repo venv.
 pre-commit run --all-files passes.
 No unauthorized file changes (dome.py and 11 INDI scripts untouched).
 Final summary provided exactly as specified.
+
+
+To create a WORKLIST_py27_validation.md, examine `indi_driver/python2` as a read-only interface-to-be-tested.
+Examine Makefile, tests, doc, and pre-commit to find the minimal set of changes necessary to validate changes to the `Python2.7` driver. The target host has only Python 2.7. Top Priority are the `pre-commit` tools. Next priority are basic K8055 board tests. Next priority are basic INDI dome tests. Any tests that cannot be converted from Python3 to Python 2.7 should be listed. Other than the WORKLIST, do not change any files.  Prefer minimal human interaction and Only run terminal commands that are in workspace settings.json under chat.tools.terminal.autoApprove.
+List all auto-approved commands before making your first shell call.
+all of the `format` code is working under Python 2.7. It is believed that the files that are in `indi_driver/python2` already function under 2.7; the goal is to lint the code and to allow basic lights-on validation in a real hardware environment
+
+Keep the validation out of the `indi_driver` folder! make a `tests/python2` folder to contain the new validation files.

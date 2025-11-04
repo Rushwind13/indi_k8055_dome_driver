@@ -16,17 +16,18 @@ These tests verify:
 import os
 import subprocess
 import sys
-import tempfile
 import time
 import unittest
-from unittest.mock import MagicMock, patch
 
 # Add indi_driver/lib directory for imports (repo root)
 REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 sys.path.insert(0, os.path.join(REPO_ROOT, "indi_driver", "lib"))
 
-from dome import Dome  # noqa: E402
-from test_base import BaseINDIScriptTestCase  # noqa: E402
+from test_base import (  # noqa: E402
+    BaseINDIScriptTestCase,
+    hardware_startup_sequence,
+    requires_hardware_state,
+)
 
 
 class TestINDIScripts(BaseINDIScriptTestCase):
@@ -35,6 +36,105 @@ class TestINDIScripts(BaseINDIScriptTestCase):
     def test_aaa_basic_config_validation(self):
         """Basic configuration validation using existing infrastructure."""
         self._basic_config_validation()
+
+    @hardware_startup_sequence(short_movement=True, check_weather=True)
+    def test_aaa_hardware_startup_connectivity(self):
+        """Hardware startup test: Basic connectivity and response validation.
+
+        This test ensures very short operations for initial hardware validation:
+        - Connect/disconnect cycle (<5 seconds total)
+        - Status readout validation
+        - Basic safety system check
+        """
+        if not self.is_hardware_mode:
+            self.skipTest("Hardware startup test requires hardware mode")
+
+        print("\n🚀 Hardware Startup Phase 1: Connectivity Test")
+
+        # Phase 1: Quick connect/status/disconnect cycle
+        # Expected: dome should connect and respond within 5 seconds total
+        print(
+            "   # when user performs this step, the dome should connect and "
+            "respond within 5 seconds"
+        )
+
+        start_time = time.time()
+
+        # Quick connection test
+        connect_result = self._run_script_safely("connect.py", timeout=3)
+        self.assertEqual(
+            connect_result.returncode, 0, "Connection should succeed quickly"
+        )
+
+        # Quick status check
+        status_result = self._run_script_safely("status.py", timeout=2)
+        self.assertEqual(status_result.returncode, 0, "Status should respond quickly")
+
+        # Quick disconnect
+        disconnect_result = self._run_script_safely("disconnect.py", timeout=2)
+        self.assertEqual(disconnect_result.returncode, 0, "Disconnect should succeed")
+
+        total_time = time.time() - start_time
+        print(f"   ✅ Connectivity test completed in {total_time:.1f}s")
+
+        # Validate timing expectation
+        self.assertLess(
+            total_time, 8.0, "Connectivity test should complete within 8 seconds"
+        )
+
+    @hardware_startup_sequence(short_movement=True, check_weather=True)
+    def test_aaa_hardware_startup_short_movement(self):
+        """Hardware startup test: Short movement validation (<5 seconds).
+
+        This test performs minimal movement to validate motor control:
+        - 2-second CW rotation
+        - Immediate abort
+        - Verify movement stops quickly
+        """
+        if not self.is_hardware_mode:
+            self.skipTest("Hardware startup test requires hardware mode")
+
+        print("\n🚀 Hardware Startup Phase 2: Short Movement Test")
+        print(
+            "   # when user performs this step, the dome should rotate for "
+            "2 seconds in the CW direction"
+        )
+
+        # Weather safety check for movement
+        if not self._check_shutter_weather_safety("rotation"):
+            self.skipTest("Weather conditions require override for movement test")
+
+        # Run the short movement test from base class
+        movement_success = self._run_short_movement_test(direction="cw", duration=2.0)
+        self.assertTrue(movement_success, "Short movement test should succeed")
+
+    @requires_hardware_state(state="any")
+    def test_aaa_hardware_startup_safety_validation(self):
+        """Hardware startup test: Safety system validation.
+
+        This test validates safety systems respond quickly:
+        - Abort command responsiveness (<2 seconds)
+        - Emergency stop functionality
+        - Communication timeout handling
+        """
+        if not self.is_hardware_mode:
+            self.skipTest("Hardware safety test requires hardware mode")
+
+        print("\n🚀 Hardware Startup Phase 3: Safety System Test")
+        print(
+            "   # when user performs this step, the abort should stop any "
+            "motion within 2 seconds"
+        )
+
+        # Test abort responsiveness
+        start_time = time.time()
+        abort_result = self._run_script_safely("abort.py", timeout=3)
+        abort_time = time.time() - start_time
+
+        self.assertEqual(abort_result.returncode, 0, "Abort should always succeed")
+        self.assertLess(abort_time, 3.0, "Abort should respond within 3 seconds")
+
+        print(f"   ✅ Abort system validated - response time: {abort_time:.1f}s")
 
     def test_all_scripts_exist(self):
         """Verify that all required scripts exist in scripts directory."""
@@ -139,33 +239,7 @@ class TestINDIScripts(BaseINDIScriptTestCase):
         azimuth = float(output_parts[2])
         self.assertTrue(0.0 <= azimuth <= 360.0, f"Invalid azimuth: {azimuth}")
 
-    def test_shutter_scripts(self):
-        """Test shutter open/close scripts."""
-        open_script = os.path.join(self.scripts_dir, "open.py")
-        close_script = os.path.join(self.scripts_dir, "close.py")
-
-        # Test close script
-        result = subprocess.run(
-            ["python3", close_script],
-            capture_output=True,
-            text=True,
-            env=self.env,
-            cwd=self.cwd,
-        )
-        # May fail if not at home, but should not crash
-        self.assertIn(result.returncode, [0, 1])
-
-        # Test open script
-        result = subprocess.run(
-            ["python3", open_script],
-            capture_output=True,
-            text=True,
-            env=self.env,
-            cwd=self.cwd,
-        )
-        # May fail if not at home, but should not crash
-        self.assertIn(result.returncode, [0, 1])
-
+    @requires_hardware_state(state="any", dependencies=["test_connect_script"])
     def test_park_script(self):
         """Test park.py script functionality."""
         script_path = os.path.join(self.scripts_dir, "park.py")
@@ -201,6 +275,41 @@ class TestINDIScripts(BaseINDIScriptTestCase):
                 print("   🔹 Smoke mode park timeout is acceptable")
                 pass
 
+    @requires_hardware_state(state="homed", dependencies=["test_park_script"])
+    def test_shutter_scripts(self):
+        """Test shutter open/close scripts."""
+        open_script = os.path.join(self.scripts_dir, "open.py")
+        close_script = os.path.join(self.scripts_dir, "close.py")
+
+        # Weather safety check for shutter operations
+        if self.is_hardware_mode and not self._check_shutter_weather_safety("shutter"):
+            self.skipTest(
+                "Weather conditions unsafe for shutter operations - "
+                "use SHUTTER_RAIN_OVERRIDE=true to override"
+            )
+
+        # Test close script
+        result = subprocess.run(
+            ["python3", close_script],
+            capture_output=True,
+            text=True,
+            env=self.env,
+            cwd=self.cwd,
+        )
+        # May fail if not at home, but should not crash
+        self.assertIn(result.returncode, [0, 1])
+
+        # Test open script
+        result = subprocess.run(
+            ["python3", open_script],
+            capture_output=True,
+            text=True,
+            env=self.env,
+            cwd=self.cwd,
+        )
+        # May fail if not at home, but should not crash
+        self.assertIn(result.returncode, [0, 1])
+
     def test_unpark_script(self):
         """Test unpark.py script functionality."""
         script_path = os.path.join(self.scripts_dir, "unpark.py")
@@ -222,6 +331,7 @@ class TestINDIScripts(BaseINDIScriptTestCase):
                 f"within {self.script_timeout}s"
             )
 
+    @requires_hardware_state(state="homed", dependencies=["test_park_script"])
     def test_goto_script(self):
         """Test goto.py script functionality."""
         script_path = os.path.join(self.scripts_dir, "goto.py")
@@ -395,6 +505,9 @@ class TestINDIScripts(BaseINDIScriptTestCase):
         """Test a complete dome operation sequence using INDI scripts."""
         raise unittest.SkipTest("Skipping full INDI script sequence in smoke mode")
 
+    @requires_hardware_state(
+        state="homed", dependencies=["test_park_script", "test_goto_script"]
+    )
     def test_calibration_position_accuracy(self):
         """Test and capture position accuracy data for calibration.
 
@@ -457,6 +570,7 @@ class TestINDIScripts(BaseINDIScriptTestCase):
         # Report calibration summary
         self._report_calibration_summary()
 
+    @requires_hardware_state(state="homed", dependencies=["test_park_script"])
     def test_calibration_home_repeatability(self):
         """Test and capture home position repeatability data."""
         if not self.is_hardware_mode:
@@ -521,6 +635,7 @@ class TestINDIScripts(BaseINDIScriptTestCase):
                 },
             )
 
+    @requires_hardware_state(state="any", dependencies=["test_movement_scripts"])
     def test_calibration_rotation_timing(self):
         """Test and capture rotation timing data for timeout calibration."""
         if not self.is_hardware_mode:
@@ -610,7 +725,7 @@ class TestINDIScripts(BaseINDIScriptTestCase):
             mean_error = statistics.mean(position_errors)
             max_error = max(position_errors)
 
-            print(f"Position Accuracy:")
+            print("Position Accuracy:")
             print(f"  Mean error: {mean_error:.2f}°")
             print(f"  Max error:  {max_error:.2f}°")
             print(f"  Samples:    {len(position_errors)}")
@@ -627,7 +742,7 @@ class TestINDIScripts(BaseINDIScriptTestCase):
             mean_time = statistics.mean(timing_data)
             max_time = max(timing_data)
 
-            print(f"Operation Timing:")
+            print("Operation Timing:")
             print(f"  Mean time:  {mean_time:.2f}s")
             print(f"  Max time:   {max_time:.2f}s")
             print(f"  Samples:    {len(timing_data)}")

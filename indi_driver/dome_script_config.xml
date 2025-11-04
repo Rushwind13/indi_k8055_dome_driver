@@ -1,8 +1,14 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<!--
+INDI dome_script driver configuration example for K8055 Dome Driver
+Copy this file to your INDI configuration directory and adjust the Script Folder path
+for your installation.
+-->
 <INDIDriver>
     <Device name="K8055 Dome">
         <Property name="Scripts">
-            <Element name="Script Folder">/home/pi/indi_k8055_dome_driver/indi_driver/scripts</Element>
+            <!-- UPDATE THIS PATH to match your installation -->
+            <Element name="Script Folder">/path/to/indi_k8055_dome_driver/indi_driver/scripts</Element>
             <Element name="Connect Script">connect.py</Element>
             <Element name="Disconnect Script">disconnect.py</Element>
             <Element name="Get Status Script">status.py</Element>

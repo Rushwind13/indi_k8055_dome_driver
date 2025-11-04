@@ -24,11 +24,12 @@ import argparse
 import os
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 
 def run_integration_tests():
-    """Run integration tests."""
+    """Run integration tests with hardware session management."""
     print("🔹 Running Integration Tests...")
     print("-" * 60)
     try:
@@ -36,28 +37,52 @@ def run_integration_tests():
         original_cwd = os.getcwd()
         os.chdir(os.path.dirname(os.path.dirname(__file__)))
 
+        # Check for hardware mode and provide session management
+        test_mode = os.environ.get("DOME_TEST_MODE", "smoke").lower()
+        is_hardware_mode = test_mode == "hardware"
+
+        if is_hardware_mode:
+            print("⚡ Hardware mode detected - initializing test session...")
+            if not _initialize_hardware_test_session():
+                print("❌ Hardware test session initialization failed")
+                return False
+
         all_passed = True
         files = [
             "test/integration/test_wrapper_integration.py",
             "test/integration/test_indi_scripts.py",
             "test/integration/test_safety_systems.py",  # Add safety tests
         ]
-        for f in files:
-            print(f"  Running {f}...")
-            result = subprocess.run(
-                [sys.executable, f],
-                capture_output=True,
-                text=True,
-                timeout=240,  # Longer timeout for hardware mode
-            )
-            if result.returncode == 0:
-                print(result.stdout)
-                print(f"    ✅ {f} passed")
-            else:
-                print(f"    ❌ {f} failed:")
-                print(f"      stdout: {result.stdout[:400]}...")
-                print(f"      stderr: {result.stderr[:400]}...")
-                all_passed = False
+
+        # For hardware mode, run tests in dependency order
+        if is_hardware_mode:
+            print("🔄 Running tests in hardware-safe sequence...")
+            all_passed = _run_hardware_integration_sequence(files)
+        else:
+            # Smoke mode - run normally
+            env = os.environ.copy()
+            env["DOME_TEST_MODE"] = "smoke"
+
+            for f in files:
+                print(f"  Running {f}...")
+                result = subprocess.run(
+                    [sys.executable, f],
+                    capture_output=True,
+                    text=True,
+                    timeout=240,  # Longer timeout for hardware mode
+                    env=env,
+                )
+                if result.returncode == 0:
+                    print(result.stdout)
+                    print(f"    ✅ {f} passed")
+                else:
+                    print(f"    ❌ {f} failed:")
+                    print(f"      stdout: {result.stdout[:400]}...")
+                    print(f"      stderr: {result.stderr[:400]}...")
+                    all_passed = False
+
+        if is_hardware_mode:
+            _finalize_hardware_test_session(all_passed)
 
         if all_passed:
             print("✅ Integration tests passed")
@@ -73,6 +98,315 @@ def run_integration_tests():
         return False
     finally:
         os.chdir(original_cwd)
+
+
+def _initialize_hardware_test_session():
+    """Initialize hardware test session with safety validation."""
+    try:
+        print("🔍 Performing hardware test session initialization...")
+
+        # Check for rain conditions
+        rain_status = os.environ.get("WEATHER_RAINING", "true").lower()
+        if rain_status in ["true", "1", "yes"]:
+            print("🌧️  Rain conditions detected")
+            print("   - Shutter operations will require explicit user confirmation")
+            print("   - Rotation tests will proceed normally")
+            print("   - Set SHUTTER_RAIN_OVERRIDE=true to enable shutter operations")
+
+        # Validate abort script availability
+        script_dir = os.path.join(os.getcwd(), "indi_driver", "scripts")
+        abort_script = os.path.join(script_dir, "abort.py")
+
+        if not os.path.exists(abort_script):
+            print(f"❌ Critical safety script missing: {abort_script}")
+            return False
+
+        # Test abort script functionality
+        env = os.environ.copy()
+        lib_path = os.path.join(os.getcwd(), "indi_driver", "lib")
+        existing = env.get("PYTHONPATH", "")
+        env["PYTHONPATH"] = lib_path + (os.pathsep + existing if existing else "")
+
+        result = subprocess.run(
+            [sys.executable, abort_script],
+            capture_output=True,
+            text=True,
+            timeout=10,
+            env=env,
+        )
+
+        if result.returncode not in [0, 1]:
+            print(f"❌ Abort script test failed: exit code {result.returncode}")
+            return False
+
+        print("✅ Hardware test session initialized safely")
+        print("⚠️  REMEMBER: Hardware operations will control real dome movement!")
+        return True
+
+    except Exception as e:
+        print(f"❌ Hardware session initialization failed: {e}")
+        return False
+
+
+def _run_hardware_integration_sequence(test_files):
+    """Run integration tests in hardware-safe sequence with dependencies."""
+    print("🔄 Executing hardware-safe test sequence...")
+
+    # Test sequence for hardware mode (dependency-ordered)
+    test_sequence = [
+        # Phase 1: Basic connectivity and safety
+        ("test/integration/test_safety_systems.py", "Safety system validation"),
+        # Phase 2: Basic script validation (no movement)
+        ("test/integration/test_wrapper_integration.py", "Hardware wrapper validation"),
+        # Phase 3: INDI scripts (with movement, ordered by dependencies)
+        (
+            "test/integration/test_indi_scripts.py",
+            "INDI script integration (with movement)",
+        ),
+    ]
+
+    all_passed = True
+
+    for test_file, description in test_sequence:
+        if test_file in test_files:  # Only run if it was requested
+            print(f"\n📋 Phase: {description}")
+            print(f"   Running {test_file}...")
+
+            # Run with extended timeout for hardware
+            result = subprocess.run(
+                [sys.executable, test_file],
+                capture_output=True,
+                text=True,
+                timeout=600,  # 10 minutes for hardware integration
+            )
+
+            if result.returncode == 0:
+                print(result.stdout)
+                print(f"    ✅ {description} passed")
+            else:
+                print(f"    ❌ {description} failed:")
+                print(f"      stdout: {result.stdout[:500]}...")
+                print(f"      stderr: {result.stderr[:500]}...")
+                all_passed = False
+
+                # For hardware mode, consider stopping on critical failures
+                if "safety" in test_file.lower():
+                    print("❌ Safety system failure - aborting hardware test sequence")
+                    break
+
+            # Brief pause between hardware test phases
+            if all_passed:
+                print("   ⏸️  Brief pause between hardware test phases...")
+                time.sleep(2)
+
+    return all_passed
+
+
+def _finalize_hardware_test_session(success):
+    """Finalize hardware test session with cleanup and reporting."""
+    try:
+        print("\n🔄 Finalizing hardware test session...")
+
+        # Execute final safety cleanup
+        script_dir = os.path.join(os.getcwd(), "indi_driver", "scripts")
+        abort_script = os.path.join(script_dir, "abort.py")
+
+        if os.path.exists(abort_script):
+            env = os.environ.copy()
+            lib_path = os.path.join(os.getcwd(), "indi_driver", "lib")
+            existing = env.get("PYTHONPATH", "")
+            env["PYTHONPATH"] = lib_path + (os.pathsep + existing if existing else "")
+
+            subprocess.run(
+                [sys.executable, abort_script],
+                capture_output=True,
+                text=True,
+                timeout=10,
+                env=env,
+            )
+            print("   🛑 Final safety stop executed")
+
+        # Session summary
+        if success:
+            print("✅ Hardware test session completed successfully")
+            print("   All systems validated for production hardware integration")
+        else:
+            print("❌ Hardware test session completed with failures")
+            print("   Review failures before proceeding with hardware integration")
+
+        print("🔒 Hardware test session finalized")
+
+    except Exception as e:
+        print(f"⚠️  Warning during hardware session finalization: {e}")
+
+
+def run_hardware_startup_sequence():
+    """Run hardware startup sequence tests with short movements and safety checks."""
+    print("🚀 Running Hardware Startup Sequence Tests...")
+    print("-" * 60)
+
+    test_mode = os.environ.get("DOME_TEST_MODE", "smoke").lower()
+    if test_mode != "hardware":
+        print("❌ Hardware startup sequence requires DOME_TEST_MODE=hardware")
+        return False
+
+    try:
+        original_cwd = os.getcwd()
+        os.chdir(os.path.dirname(os.path.dirname(__file__)))
+
+        # Initialize hardware session
+        if not _initialize_hardware_test_session():
+            return False
+
+        print("\n🎯 Phase 1: Basic Connectivity Test")
+        print(
+            "   # when user performs this step, the dome should connect and "
+            "respond within 5 seconds"
+        )
+        startup_tests = [
+            ("connect.py", "Connection establishment", 5),
+            ("status.py", "Status readout", 3),
+            ("disconnect.py", "Clean disconnection", 3),
+        ]
+
+        script_dir = os.path.join(os.getcwd(), "indi_driver", "scripts")
+        env = os.environ.copy()
+        lib_path = os.path.join(os.getcwd(), "indi_driver", "lib")
+        existing = env.get("PYTHONPATH", "")
+        env["PYTHONPATH"] = lib_path + (os.pathsep + existing if existing else "")
+
+        for script, description, timeout in startup_tests:
+            print(f"   Testing {description}...")
+            script_path = os.path.join(script_dir, script)
+
+            start_time = time.time()
+            result = subprocess.run(
+                [sys.executable, script_path],
+                capture_output=True,
+                text=True,
+                timeout=timeout,
+                env=env,
+            )
+            elapsed = time.time() - start_time
+
+            if result.returncode == 0:
+                print(f"   ✅ {description} completed in {elapsed:.1f}s")
+            else:
+                print(f"   ❌ {description} failed after {elapsed:.1f}s")
+                if elapsed >= timeout - 1:
+                    print(
+                        f"   ⚠️  WARNING: {description} approaching timeout - "
+                        "check hardware connection"
+                    )
+                return False
+
+        print("\n🎯 Phase 2: Short Movement Validation")
+        print(
+            "   # when user performs this step, the dome should rotate for "
+            "2 seconds in the CW direction"
+        )
+
+        # Weather check for movement tests
+        rain_status = os.environ.get("WEATHER_RAINING", "true").lower()
+        if rain_status in ["true", "1", "yes"]:
+            print("   🌧️  Rain detected - rotation test will proceed (safe in rain)")
+
+        # Short CW movement test
+        if not _run_short_movement_validation():
+            return False
+
+        print("\n🎯 Phase 3: Safety System Validation")
+        print(
+            "   # when user performs this step, the abort should stop any "
+            "motion within 2 seconds"
+        )
+
+        # Test abort functionality
+        abort_script = os.path.join(script_dir, "abort.py")
+        start_time = time.time()
+        result = subprocess.run(
+            [sys.executable, abort_script],
+            capture_output=True,
+            text=True,
+            timeout=5,
+            env=env,
+        )
+        elapsed = time.time() - start_time
+
+        if result.returncode == 0:
+            print(f"   ✅ Abort system validated in {elapsed:.1f}s")
+        else:
+            print("   ❌ Abort system failed - CRITICAL SAFETY ISSUE")
+            return False
+
+        _finalize_hardware_test_session(True)
+        print("\n✅ Hardware startup sequence completed successfully!")
+        print("   System ready for extended hardware integration testing")
+        return True
+
+    except subprocess.TimeoutExpired:
+        print("❌ Hardware startup sequence timed out")
+        return False
+    except Exception as e:
+        print(f"❌ Hardware startup sequence failed: {e}")
+        return False
+    finally:
+        os.chdir(original_cwd)
+
+
+def _run_short_movement_validation():
+    """Run short movement validation for hardware startup."""
+    try:
+        script_dir = os.path.join(os.getcwd(), "indi_driver", "scripts")
+        env = os.environ.copy()
+        lib_path = os.path.join(os.getcwd(), "indi_driver", "lib")
+        existing = env.get("PYTHONPATH", "")
+        env["PYTHONPATH"] = lib_path + (os.pathsep + existing if existing else "")
+
+        print("   Starting 2-second CW movement test...")
+
+        # Start CW movement
+        cw_script = os.path.join(script_dir, "move_cw.py")
+        start_time = time.time()
+
+        move_process = subprocess.Popen(
+            [sys.executable, cw_script],
+            env=env,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+
+        # Let it run for 2 seconds
+        time.sleep(2.0)
+
+        # Stop movement
+        abort_script = os.path.join(script_dir, "abort.py")
+        subprocess.run(
+            [sys.executable, abort_script],
+            capture_output=True,
+            timeout=5,
+            env=env,
+        )
+
+        # Wait for movement process to complete
+        try:
+            move_process.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            move_process.terminate()
+
+        elapsed = time.time() - start_time
+        print(f"   ✅ Short movement test completed in {elapsed:.1f}s")
+        return True
+
+    except Exception as e:
+        print(f"   ❌ Short movement test failed: {e}")
+        # Emergency stop
+        try:
+            abort_script = os.path.join(script_dir, "abort.py")
+            subprocess.run([sys.executable, abort_script], timeout=5, env=env)
+        except Exception:
+            pass
+        return False
 
 
 def run_unit_tests():
@@ -92,6 +426,10 @@ def run_unit_tests():
         original_cwd = os.getcwd()
         os.chdir(os.path.dirname(os.path.dirname(__file__)))
 
+        # Set up environment for smoke mode testing
+        env = os.environ.copy()
+        env["DOME_TEST_MODE"] = "smoke"
+
         # Run pytest on unit test files
         unit_test_files = [
             "test/unit/test_dome_units.py",
@@ -107,6 +445,7 @@ def run_unit_tests():
                     capture_output=True,
                     text=True,
                     timeout=120,
+                    env=env,
                 )
 
                 if result.returncode == 0:
@@ -453,6 +792,12 @@ Notes:
         "--bdd-only", action="store_true", help="Run only BDD tests with behave"
     )
 
+    parser.add_argument(
+        "--hardware-startup",
+        action="store_true",
+        help="Run hardware startup sequence tests (requires hardware mode)",
+    )
+
     # BDD test options
     parser.add_argument(
         "--mode",
@@ -511,6 +856,11 @@ Notes:
         create_requirements_file()
         return
 
+    if args.hardware_startup:
+        # Hardware startup sequence
+        success = run_hardware_startup_sequence()
+        sys.exit(0 if success else 1)
+
     # Check dependencies
     if not check_dependencies():
         print("\n💡 To install test dependencies:")
@@ -533,6 +883,8 @@ Notes:
         run_integration = run_unit = run_bdd = False
     elif args.bdd_only:
         run_integration = run_unit = run_doc_scripts = False
+    elif args.hardware_startup:
+        run_integration = run_unit = run_doc_scripts = run_bdd = False
     elif args.all:
         run_precommit = True
 

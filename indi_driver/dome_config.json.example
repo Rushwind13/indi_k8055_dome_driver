@@ -22,5 +22,17 @@
         "_comment": "Hardware interface settings",
         "mock_mode": false,
         "device_port": 0
+    },
+    "testing": {
+        "_comment": "Testing configuration - only used when DOME_TEST_MODE=smoke",
+        "smoke_test": false,
+        "smoke_test_timeout": 3.0
+    },
+    "safety": {
+        "_comment": "Safety timeout settings - critical for safe operation",
+        "emergency_stop_timeout": 2.0,
+        "operation_timeout": 60.0,
+        "max_rotation_time": 120.0,
+        "max_shutter_time": 30.0
     }
 }

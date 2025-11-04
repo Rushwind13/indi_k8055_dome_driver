@@ -22,7 +22,6 @@ import unittest
 REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 sys.path.insert(0, os.path.join(REPO_ROOT, "indi_driver", "lib"))
 
-from dome import Dome  # noqa: E402
 from test_base import BaseSafetyTestCase  # noqa: E402
 
 

@@ -133,6 +133,54 @@ test-calibrate: ## 🎯 Run calibration data capture tests (hardware mode only)
 	@echo "📋 Calibration data capture complete!"
 	@echo "💡 Check test output above for calibration statistics and recommendations"
 
+test-hardware-startup: ## 🚀 Run hardware startup sequence tests (safe, short movements)
+	@echo "🚀 Running hardware startup sequence tests..."
+	@echo "⚠️  WARNING: This will control real dome hardware!"
+	@echo "ℹ️  Performing safe startup validation with short movements (<5 seconds)"
+	@if [ "$(DOME_TEST_MODE)" != "hardware" ]; then \
+		echo "🔧 Setting DOME_TEST_MODE=hardware for startup tests"; \
+		export DOME_TEST_MODE=hardware; \
+	fi
+	@echo "🌧️  Rain safety: WEATHER_RAINING=$(WEATHER_RAINING)"
+	@echo "🔍 Phase 1: Hardware connectivity validation..."
+	python test/run_tests.py --hardware-startup --yes
+	@echo "✅ Hardware startup sequence complete!"
+	@echo "💡 System ready for extended hardware integration testing"
+
+test-hardware-sequence: ## 🔄 Run full hardware test sequence with proper ordering
+	@echo "🔄 Running full hardware test sequence..."
+	@echo "⚠️  WARNING: This will perform extensive dome movements!"
+	@echo "ℹ️  Tests will run in dependency-ordered sequence for safety"
+	@if [ "$(DOME_TEST_MODE)" != "hardware" ]; then \
+		echo "❌ Hardware sequence tests require DOME_TEST_MODE=hardware"; \
+		echo "💡 Usage: DOME_TEST_MODE=hardware make test-hardware-sequence"; \
+		exit 1; \
+	fi
+	@echo "🔍 Pre-flight hardware validation..."
+	$(MAKE) test-hardware-startup DOME_TEST_MODE=hardware
+	@echo "🔧 Running sequenced integration tests..."
+	DOME_TEST_MODE=hardware python test/run_tests.py --integration-only --yes
+	@echo "📊 Running calibration data capture..."
+	$(MAKE) test-calibrate DOME_TEST_MODE=hardware
+	@echo "✅ Full hardware test sequence complete!"
+	@echo "🎉 System validated for production hardware integration!"
+
+test-hardware-safe: ## 🛡️ Run minimal hardware tests for initial validation
+	@echo "🛡️  Running minimal hardware validation tests..."
+	@echo "ℹ️  Safe tests: connectivity + short movements only"
+	@echo "⏱️  Expected duration: <2 minutes"
+	@if [ "$(DOME_TEST_MODE)" != "hardware" ]; then \
+		echo "🔧 Setting DOME_TEST_MODE=hardware for safe tests"; \
+		export DOME_TEST_MODE=hardware; \
+	fi
+	@echo "🌧️  Rain safety check enabled"
+	@echo "🔍 Running hardware startup sequence..."
+	python test/run_tests.py --hardware-startup --yes
+	@echo "🔧 Running basic safety system tests..."
+	DOME_TEST_MODE=hardware python -m pytest test/integration/test_safety_systems.py::TestSafetySystems::test_emergency_stop_response_time -v
+	@echo "✅ Minimal hardware validation complete!"
+	@echo "💡 Ready for extended testing with 'make test-hardware-sequence'"
+
 lint: ## Run all linting checks
 	@echo "🔍 Running code quality checks..."
 	flake8 .

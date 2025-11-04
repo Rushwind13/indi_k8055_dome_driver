@@ -31,13 +31,20 @@ DEFAULT_CONFIG = {
     },
     # Hardware settings
     "hardware": {
-        "mock_mode": True,  # Safe default for testing
+        "mock_mode": False,  # Production default - real hardware
         "device_port": 0,  # K8055 device port
     },
     # Testing settings
     "testing": {
         "smoke_test": False,  # Use shorter timeouts for testing
         "smoke_test_timeout": 3.0,  # Short timeout for smoke tests
+    },
+    # Safety timeout settings
+    "safety": {
+        "emergency_stop_timeout": 2.0,  # Max time for emergency stop
+        "operation_timeout": 60.0,  # Max time for normal operations
+        "max_rotation_time": 120.0,  # Max time for full rotation
+        "max_shutter_time": 30.0,  # Max time for shutter operation
     },
 }
 
@@ -53,6 +60,10 @@ def load_config(config_file="dome_config.json"):
         dict: Configuration dictionary
     """
     config = DEFAULT_CONFIG.copy()
+
+    # Check for test mode environment variable
+    test_mode = os.environ.get("DOME_TEST_MODE", "").lower()
+    is_smoke_mode = test_mode == "smoke"
 
     if os.path.exists(config_file):
         try:
@@ -71,6 +82,16 @@ def load_config(config_file="dome_config.json"):
     else:
         print(f"Configuration file {config_file} not found, using defaults")
         print("Create a dome_config.json file to customize settings")
+
+    # Apply smoke mode adjustments if enabled
+    if is_smoke_mode:
+        config["testing"]["smoke_test"] = True
+        config["hardware"]["mock_mode"] = True
+        # Shorter safety timeouts for smoke mode
+        config["safety"]["emergency_stop_timeout"] = 1.0
+        config["safety"]["operation_timeout"] = 5.0
+        config["safety"]["max_rotation_time"] = 10.0
+        config["safety"]["max_shutter_time"] = 5.0
 
     return config
 

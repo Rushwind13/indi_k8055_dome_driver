@@ -3,7 +3,6 @@ Error handling and edge case step definitions for dome control BDD tests.
 These steps handle error conditions, edge cases, and safety scenarios.
 """
 
-import json
 import os
 import sys
 import time
@@ -34,7 +33,7 @@ def step_error_handling_active(context):
     context.error_handling_active = True
     context.error_log = []
     context.system_state = "normal"
-    print(f"🛡️  Error handling system activated")
+    print("🛡️  Error handling system activated")
 
 
 @given("the dome is operating normally")
@@ -43,7 +42,7 @@ def step_dome_operating_normally(context):
     context.dome.system_state = "normal"
     context.dome.error_count = 0
     context.last_operation_success = True
-    print(f"✅ Dome operating in normal state")
+    print("✅ Dome operating in normal state")
 
 
 @given("the dome is tracking position with encoders")
@@ -52,7 +51,7 @@ def step_dome_tracking_with_encoders(context):
     context.dome.position_tracking_mode = "encoder"
     context.dome.encoder_enabled = True
     context.dome.encoder_last_reading = context.dome.current_azimuth
-    print(f"📊 Dome tracking position with encoders")
+    print("📊 Dome tracking position with encoders")
 
 
 @given("the dome motor is running")
@@ -61,7 +60,7 @@ def step_dome_motor_running(context):
     context.dome.motor_state = "running"
     context.dome.motor_start_time = time.time()
     context.dome.motor_current_draw = 2.5  # Normal current
-    print(f"⚡ Dome motor is running")
+    print("⚡ Dome motor is running")
 
 
 @given("the dome is operating on normal power")
@@ -69,7 +68,7 @@ def step_dome_normal_power(context):
     """Set dome to normal power supply state."""
     context.dome.supply_voltage = 12.0  # Normal voltage
     context.dome.power_state = "normal"
-    print(f"🔋 Dome operating on normal power (12.0V)")
+    print("🔋 Dome operating on normal power (12.0V)")
 
 
 @given("the dome is executing a rotation command")
@@ -78,7 +77,7 @@ def step_dome_executing_rotation(context):
     context.dome.operation_state = "rotating"
     context.dome.current_command = "rotate_clockwise"
     context.dome.command_start_time = time.time()
-    print(f"🔄 Dome executing rotation command")
+    print("🔄 Dome executing rotation command")
 
 
 @given("the dome is performing any operation")
@@ -87,7 +86,7 @@ def step_dome_performing_operation(context):
     context.dome.operation_state = "active"
     context.dome.current_command = "test_operation"
     context.dome.emergency_stop_armed = True
-    print(f"⚙️  Dome performing operation")
+    print("⚙️  Dome performing operation")
 
 
 @given("the dome is starting up")
@@ -95,7 +94,7 @@ def step_dome_starting_up(context):
     """Set dome to startup state."""
     context.dome.system_state = "starting"
     context.dome.startup_phase = "config_load"
-    print(f"🚀 Dome starting up")
+    print("🚀 Dome starting up")
 
 
 @given("the dome has been operating for extended periods")
@@ -104,7 +103,7 @@ def step_dome_extended_operation(context):
     context.dome.operation_hours = 500  # Simulated extended operation
     context.dome.sensor_drift_detected = False
     context.dome.calibration_age = 30  # Days since last calibration
-    print(f"⏰ Dome has been operating for extended periods")
+    print("⏰ Dome has been operating for extended periods")
 
 
 @given("the dome is operating in harsh weather")
@@ -114,7 +113,7 @@ def step_dome_harsh_weather(context):
     context.dome.temperature = -15  # Cold conditions
     context.dome.humidity = 85  # High humidity
     context.dome.wind_speed = 25  # High wind
-    print(f"🌨️  Dome operating in harsh weather conditions")
+    print("🌨️  Dome operating in harsh weather conditions")
 
 
 @when("communication with the K8055 interface times out")
@@ -129,10 +128,10 @@ def step_k8055_timeout(context):
         context.dome.system_state = "safe_mode"
         context.dome.manual_intervention_required = True
         context.error_log.append("K8055 communication timeout")
-        print(f"🔹 SMOKE TEST: K8055 communication timeout simulated (aborted)")
+        print("🔹 SMOKE TEST: K8055 communication timeout simulated (aborted)")
     else:
         # In hardware mode, this would be a real timeout
-        print(f"⚡ HARDWARE: K8055 communication timeout detected")
+        print("⚡ HARDWARE: K8055 communication timeout detected")
 
 
 @when("the encoder readings become inconsistent")
@@ -146,7 +145,7 @@ def step_encoder_inconsistent(context):
     context.dome.precision_mode = "reduced"
     context.dome.service_alert_pending = True
     context.error_log.append("Encoder inconsistency detected")
-    print(f"📊 Encoder readings became inconsistent (switched to time-based)")
+    print("📊 Encoder readings became inconsistent (switched to time-based)")
 
 
 @when("the motor stalls due to mechanical obstruction")
@@ -162,7 +161,7 @@ def step_motor_stall(context):
     context.dome.manual_intervention_required = True
     context.dome.service_alert_pending = True
     context.error_log.append("Motor stall detected - mechanical obstruction")
-    print(f"⚠️  Motor stalled due to mechanical obstruction (power cut)")
+    print("⚠️  Motor stalled due to mechanical obstruction (power cut)")
 
 
 @when("the supply voltage drops below minimum")
@@ -189,7 +188,7 @@ def step_conflicting_command(context):
         context.dome.command_queue = []
     context.dome.command_queue.append(context.dome.conflicting_command)
     context.error_log.append("Conflicting command detected")
-    print(f"⚠️  Conflicting command issued during rotation (queued)")
+    print("⚠️  Conflicting command issued during rotation (queued)")
 
 
 @when("an emergency stop is activated")
@@ -205,7 +204,7 @@ def step_emergency_stop(context):
     context.dome.system_state = "emergency_safe"
     context.dome.manual_reset_required = True
     context.error_log.append("Emergency stop activated")
-    print(f"🚨 EMERGENCY STOP ACTIVATED (motors powered off)")
+    print("🚨 EMERGENCY STOP ACTIVATED (motors powered off)")
 
 
 @when("the configuration file is corrupted or missing critical values")
@@ -219,7 +218,7 @@ def step_config_corrupted(context):
     # Mark system as degraded but still operable in tests
     context.dome.system_state = "degraded"
     context.error_log.append("Configuration file corruption detected")
-    print(f"⚠️  Configuration file corrupted - using defaults")
+    print("⚠️  Configuration file corrupted - using defaults")
 
 
 @when("sensor readings drift from calibrated values")
@@ -266,7 +265,7 @@ def step_operation_aborted_safely(context):
         "safe",
     ], "Operation should be safely aborted"
     assert context.dome.motor_state == "stopped", "Motor should be stopped"
-    print(f"✅ Operation safely aborted")
+    print("✅ Operation safely aborted")
 
 
 @then("an error should be logged")
@@ -280,7 +279,7 @@ def step_error_logged(context):
 def step_system_safe_mode(context):
     """Verify system entered safe mode."""
     assert context.dome.system_state == "safe_mode", "System should be in safe mode"
-    print(f"✅ System entered safe mode")
+    print("✅ System entered safe mode")
 
 
 @then("manual intervention should be required")
@@ -289,7 +288,7 @@ def step_manual_intervention_required(context):
     assert (
         context.dome.manual_intervention_required
     ), "Manual intervention should be required"
-    print(f"✅ Manual intervention required")
+    print("✅ Manual intervention required")
 
 
 @then("position tracking should switch to time-based estimation")
@@ -298,7 +297,7 @@ def step_time_based_tracking(context):
     assert (
         context.dome.position_tracking_mode == "time_based"
     ), "Should switch to time-based tracking"
-    print(f"✅ Position tracking switched to time-based estimation")
+    print("✅ Position tracking switched to time-based estimation")
 
 
 @then("an encoder error should be reported")
@@ -307,7 +306,7 @@ def step_encoder_error_reported(context):
     assert any(
         "encoder" in error.lower() for error in context.error_log
     ), "Encoder error should be reported"
-    print(f"✅ Encoder error reported")
+    print("✅ Encoder error reported")
 
 
 @then("movement precision should be reduced")
@@ -316,14 +315,14 @@ def step_movement_precision_reduced(context):
     assert (
         context.dome.precision_mode == "reduced"
     ), "Movement precision should be reduced"
-    print(f"✅ Movement precision reduced")
+    print("✅ Movement precision reduced")
 
 
 @then("a service alert should be generated")
 def step_service_alert_generated(context):
     """Verify service alert was generated."""
     assert context.dome.service_alert_pending, "Service alert should be generated"
-    print(f"✅ Service alert generated")
+    print("✅ Service alert generated")
 
 
 @then("the stall should be detected within {seconds:d} seconds")
@@ -344,7 +343,7 @@ def step_motor_power_cut(context):
         "stopped",
         "emergency_stopped",
     ], "Motor power should be cut"
-    print(f"✅ Motor power cut immediately")
+    print("✅ Motor power cut immediately")
 
 
 @then("an obstruction error should be reported")
@@ -353,7 +352,7 @@ def step_obstruction_error_reported(context):
     assert any(
         "obstruction" in error.lower() for error in context.error_log
     ), "Obstruction error should be reported"
-    print(f"✅ Obstruction error reported")
+    print("✅ Obstruction error reported")
 
 
 @then("emergency procedures should be activated")
@@ -362,7 +361,7 @@ def step_emergency_procedures_activated(context):
     assert (
         context.dome.emergency_procedures_active
     ), "Emergency procedures should be activated"
-    print(f"✅ Emergency procedures activated")
+    print("✅ Emergency procedures activated")
 
 
 @then("all motor operations should be suspended")
@@ -371,7 +370,7 @@ def step_motor_operations_suspended(context):
     assert (
         context.dome.motor_operations_suspended
     ), "Motor operations should be suspended"
-    print(f"✅ All motor operations suspended")
+    print("✅ All motor operations suspended")
 
 
 @then("a low voltage warning should be issued")
@@ -380,7 +379,7 @@ def step_low_voltage_warning(context):
     assert any(
         "voltage" in error.lower() for error in context.error_log
     ), "Low voltage warning should be issued"
-    print(f"✅ Low voltage warning issued")
+    print("✅ Low voltage warning issued")
 
 
 @then("the system should wait for voltage recovery")
@@ -389,7 +388,7 @@ def step_wait_voltage_recovery(context):
     assert (
         context.dome.power_state == "waiting_recovery"
     ), "System should wait for voltage recovery"
-    print(f"✅ System waiting for voltage recovery")
+    print("✅ System waiting for voltage recovery")
 
 
 @then("operations should resume when voltage is stable")
@@ -401,7 +400,7 @@ def step_operations_resume_voltage_stable(context):
     assert (
         context.dome.can_resume_operations()
     ), "Operations should resume when voltage is stable"
-    print(f"✅ Operations can resume when voltage is stable")
+    print("✅ Operations can resume when voltage is stable")
 
 
 @then("all movement should cease immediately")
@@ -411,14 +410,14 @@ def step_movement_cease_immediately(context):
     assert (
         context.dome.operation_state == "emergency_safe"
     ), "All operations should be in emergency safe state"
-    print(f"✅ All movement ceased immediately")
+    print("✅ All movement ceased immediately")
 
 
 @then("all motor power should be cut")
 def step_all_motor_power_cut(context):
     """Verify all motor power was cut."""
     assert context.dome.motor_power_state == "off", "All motor power should be cut"
-    print(f"✅ All motor power cut")
+    print("✅ All motor power cut")
 
 
 @then("the system should enter emergency safe mode")
@@ -427,21 +426,21 @@ def step_emergency_safe_mode(context):
     assert (
         context.dome.system_state == "emergency_safe"
     ), "System should be in emergency safe mode"
-    print(f"✅ System in emergency safe mode")
+    print("✅ System in emergency safe mode")
 
 
 @then("manual reset should be required to resume")
 def step_manual_reset_required(context):
     """Verify manual reset is required to resume."""
     assert context.dome.manual_reset_required, "Manual reset should be required"
-    print(f"✅ Manual reset required to resume")
+    print("✅ Manual reset required to resume")
 
 
 @then("safe default values should be used")
 def step_safe_defaults_used(context):
     """Verify safe default values are being used."""
     assert context.dome.using_defaults, "Safe default values should be used"
-    print(f"✅ Safe default values in use")
+    print("✅ Safe default values in use")
 
 
 @then("a configuration error should be reported")
@@ -450,7 +449,7 @@ def step_config_error_reported(context):
     assert any(
         "config" in error.lower() for error in context.error_log
     ), "Configuration error should be reported"
-    print(f"✅ Configuration error reported")
+    print("✅ Configuration error reported")
 
 
 @then("the system should still be operable")
@@ -460,14 +459,14 @@ def step_system_still_operable(context):
         "normal",
         "degraded",
     ], "System should still be operable"
-    print(f"✅ System still operable")
+    print("✅ System still operable")
 
 
 @then("manual configuration should be prompted")
 def step_manual_config_prompted(context):
     """Verify manual configuration is prompted."""
     assert context.dome.manual_config_prompt, "Manual configuration should be prompted"
-    print(f"✅ Manual configuration prompted")
+    print("✅ Manual configuration prompted")
 
 
 # Additional, small "then" steps to satisfy feature expectations. These are

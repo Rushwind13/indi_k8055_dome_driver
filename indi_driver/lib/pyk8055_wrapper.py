@@ -45,6 +45,9 @@ class k8055:
         self._counters = [0, 0, 0]  # Counters 1-2 (index 0 unused)
         self._counter_debounce = [0, 0, 0]  # Debounce times
 
+        # Hardware device reference (set in OpenDevice if hardware mode)
+        self._hardware_device = None
+
         # Set some realistic mock values for dome operations
         self._analog_inputs[1] = 50  # Shutter upper limit
         self._analog_inputs[2] = 200  # Shutter lower limit
@@ -81,19 +84,61 @@ class k8055:
             # In production mode, try to connect to real hardware
             self._log(f"Attempting to connect to hardware at address {BoardAddress}")
             try:
-                # This is where real libk8055 integration would go
-                # For now, we simulate hardware not being available
+                # Try to import real libk8055 hardware interface
+                try:
+                    import pyk8055  # Real SWIG-generated K8055 module
 
-                # Try to import and use real libk8055
-                # import pyk8055  # This would be the real SWIG-generated module
-                # self._hardware_device = pyk8055.k8055(BoardAddress)
-                # self.is_open = True
-                # return 0
+                    self._log(
+                        "Found real pyk8055 module - attempting hardware connection"
+                    )
 
-                # Since we don't have real hardware, raise error
-                raise K8055Error(
-                    "Hardware mode not implemented - no libk8055 available"
-                )
+                    # Create hardware device instance
+                    self._hardware_device = pyk8055.k8055(BoardAddress)
+
+                    # Test basic connectivity
+                    if (
+                        hasattr(self._hardware_device, "IsOpen")
+                        and self._hardware_device.IsOpen()
+                    ):
+                        self._log("Hardware device opened successfully")
+                        self.is_open = True
+                        return 0
+                    else:
+                        # Try to open the device
+                        if hasattr(self._hardware_device, "OpenDevice"):
+                            result = self._hardware_device.OpenDevice(BoardAddress)
+                            if result == 0:
+                                self._log("Hardware device opened via OpenDevice()")
+                                self.is_open = True
+                                return 0
+                            else:
+                                raise K8055Error(
+                                    f"Hardware OpenDevice() returned {result}"
+                                )
+                        else:
+                            # Assume device is ready if it instantiated
+                            self._log("Hardware device instantiated - assuming ready")
+                            self.is_open = True
+                            return 0
+
+                except ImportError:
+                    self._log("pyk8055 module not found - hardware not available")
+                    raise K8055Error(
+                        "Hardware mode requires 'pyk8055' module. Install with:\n"
+                        "  sudo apt-get install libk8055-dev python3-dev\n"
+                        "  pip install pyk8055\n"
+                        "Or build from source: https://github.com/rm-hull/pyk8055"
+                    )
+                except Exception as hw_error:
+                    self._log(f"Hardware connection failed: {hw_error}")
+                    raise K8055Error(
+                        f"Hardware device connection failed: {hw_error}\n"
+                        "Check:\n"
+                        "  - K8055 board is connected via USB\n"
+                        "  - Board address {BoardAddress} is correct (0-3)\n"
+                        "  - USB permissions (may need sudo or udev rules)\n"
+                        "  - No other applications using the device"
+                    )
 
             except (ImportError, Exception) as e:
                 self._log(f"Hardware connection failed: {e}")
@@ -113,17 +158,47 @@ class k8055:
         """Set digital output channel (1-8) to HIGH"""
         if not (1 <= Channel <= 8):
             return -1
+
         self._log(f"Setting digital channel {Channel} ON")
-        self._digital_outputs[Channel] = True
-        return 0
+
+        # Use hardware device if available
+        if self._hardware_device and not self.mock:
+            try:
+                result = self._hardware_device.SetDigitalChannel(Channel)
+                self._digital_outputs[
+                    Channel
+                ] = True  # Update mock state for consistency
+                return result
+            except Exception as e:
+                self._log(f"Hardware SetDigitalChannel failed: {e}")
+                raise K8055Error(f"Hardware SetDigitalChannel failed: {e}")
+        else:
+            # Mock mode
+            self._digital_outputs[Channel] = True
+            return 0
 
     def ClearDigitalChannel(self, Channel):
         """Set digital output channel (1-8) to LOW"""
         if not (1 <= Channel <= 8):
             return -1
+
         self._log(f"Setting digital channel {Channel} OFF")
-        self._digital_outputs[Channel] = False
-        return 0
+
+        # Use hardware device if available
+        if self._hardware_device and not self.mock:
+            try:
+                result = self._hardware_device.ClearDigitalChannel(Channel)
+                self._digital_outputs[
+                    Channel
+                ] = False  # Update mock state for consistency
+                return result
+            except Exception as e:
+                self._log(f"Hardware ClearDigitalChannel failed: {e}")
+                raise K8055Error(f"Hardware ClearDigitalChannel failed: {e}")
+        else:
+            # Mock mode
+            self._digital_outputs[Channel] = False
+            return 0
 
     def ReadDigitalChannel(self, Channel):
         """
@@ -138,19 +213,29 @@ class k8055:
         if not (1 <= Channel <= 5):
             return -1
 
-        # Mock some realistic behavior for dome sensors
-        if Channel == 3:  # Home switch
-            # If explicitly set in digital inputs, use that value
-            if self._digital_inputs[Channel]:
-                result = 1
-            else:
-                # Simulate home switch being triggered occasionally when not set
-                result = int(time.time() % 30 < 2)  # Trigger for 2s every 30s
+        # Use hardware device if available
+        if self._hardware_device and not self.mock:
+            try:
+                result = self._hardware_device.ReadDigitalChannel(Channel)
+                self._log(f"Reading digital channel {Channel} (hardware): {result}")
+                return result
+            except Exception as e:
+                self._log(f"Hardware ReadDigitalChannel failed: {e}")
+                raise K8055Error(f"Hardware ReadDigitalChannel failed: {e}")
         else:
-            result = int(self._digital_inputs[Channel])
+            # Mock some realistic behavior for dome sensors
+            if Channel == 3:  # Home switch
+                # If explicitly set in digital inputs, use that value
+                if self._digital_inputs[Channel]:
+                    result = 1
+                else:
+                    # Simulate home switch being triggered occasionally when not set
+                    result = int(time.time() % 30 < 2)  # Trigger for 2s every 30s
+            else:
+                result = int(self._digital_inputs[Channel])
 
-        self._log(f"Reading digital channel {Channel}: {result}")
-        return result
+            self._log(f"Reading digital channel {Channel} (mock): {result}")
+            return result
 
     # Analog I/O Functions (Required for shutter limits)
 

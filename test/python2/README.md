@@ -39,7 +39,7 @@ make test-py27-full          # Complete validation with linting
 
 The validation suite covers:
 1. **Import Tests** - Core module compatibility
-2. **Dome Creation** - Object instantiation and basic functionality  
+2. **Dome Creation** - Object instantiation and basic functionality
 3. **State Persistence** - Configuration and sensor state management
 4. **Script Integration** - INDI script compatibility
 5. **Python 2.7 Compatibility** - Version-specific features

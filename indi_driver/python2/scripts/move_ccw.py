@@ -18,7 +18,7 @@ def main():
         dome = Dome()
         # Restore previous state
         restore_state(dome)
-        
+
         try:
             dome.ccw()
             # Save state after movement

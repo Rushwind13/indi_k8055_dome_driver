@@ -18,7 +18,7 @@ def main():
         dome = Dome()
         # Restore previous state to know what was happening
         restore_state(dome)
-        
+
         # Attempt to stop rotation and shutter movement
         try:
             dome.rotation_stop()
@@ -29,7 +29,7 @@ def main():
             dome.shutter_stop()
         except Exception as e:
             sys.stderr.write("WARN: shutter_stop failed: {}\n".format(e))
-            
+
         # Save the stopped state (rotation_stop and shutter_stop set the flags)
         save_state(dome, "abort")
         sys.exit(0)

@@ -18,7 +18,7 @@ def main():
         dome = Dome()
         # Restore previous state
         restore_state(dome)
-        
+
         try:
             # Unpark: mark dome not parked/at-home so movement allowed
             dome.is_home = False

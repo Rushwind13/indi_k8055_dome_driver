@@ -154,9 +154,9 @@ def main():
     try:
         dome = Dome()
         restore_state(dome)  # Restore previous state
-        
+
         # ... dome operations ...
-        
+
         save_state(dome, "script_name")  # Save current state
         sys.exit(0)
     except Exception:
@@ -300,7 +300,7 @@ python test/python2/test_persistence_py27.py --demo
 
 # Check module availability
 python -c "import pyk8055_wrapper; print('K8055 wrapper OK')"
-python -c "import dome; print('Dome module OK')" 
+python -c "import dome; print('Dome module OK')"
 python -c "import persistence; print('Persistence module OK')"
 
 # Test persistence directly

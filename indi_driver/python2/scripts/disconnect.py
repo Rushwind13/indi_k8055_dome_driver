@@ -19,18 +19,18 @@ def main():
         dome = Dome()
         # Restore previous state
         restore_state(dome)
-        
+
         # Attempt graceful disconnect of underlying device if available
         try:
             dev = getattr(dome, "dome", None)
             if dev is not None and hasattr(dev, "close"):
                 dev.close()
             # Mark device as disconnected
-            if hasattr(dome.dome, 'k8055_device'):
+            if hasattr(dome.dome, "k8055_device"):
                 dome.dome.k8055_device.is_open = False
         except Exception as e:
             sys.stderr.write("WARN: device close failed: {}\n".format(e))
-        
+
         # Save disconnected state
         save_state(dome, "disconnect")
         sys.exit(0)

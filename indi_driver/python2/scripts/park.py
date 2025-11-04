@@ -18,7 +18,7 @@ def main():
         dome = Dome()
         # Restore previous state
         restore_state(dome)
-        
+
         try:
             dome.home()
             # Save state after parking (dome should be at home position)

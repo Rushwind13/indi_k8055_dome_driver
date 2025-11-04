@@ -24,7 +24,7 @@ def main():
         dome = Dome()
         # Restore previous state
         restore_state(dome)
-        
+
         try:
             # Use the rotation API to move toward the requested azimuth.
             dome.rotation(azimuth)

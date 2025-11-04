@@ -20,7 +20,7 @@ def main():
         dome = Dome()
         # Restore previous state
         restore_state(dome)
-        
+
         ok = False
         try:
             ok = dome.shutter_open()

@@ -7,7 +7,6 @@ in CI and developer environments.
 
 import os
 import sys
-import time
 
 # Ensure we can import the library modules regardless of how behave was invoked
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))

@@ -1,89 +1,85 @@
 # INDI K8055 Dome Driver
 
-**Complete INDI dome driver for Velleman K8055-based observatory dome controllers.**
+**Production-ready INDI dome driver for Velleman K8055-based observatory dome controllers.**
+
+## 🚀 For Users
+
+**New to this driver?** Start here:
+- **[Installation Guide](doc/Installation_Guide.md)** - Complete setup on Raspberry Pi
+- **[User Guide](doc/User_Guide.md)** - Day-to-day operation and configuration
+- **[Troubleshooting Guide](doc/Troubleshooting_Guide.md)** - Problem diagnosis and solutions
 
 ## 🎯 Quick Start
 
-This is the INDI dome driver. Configure your INDI dome_script driver with:
+**Already installed?** Configure your INDI dome_script driver:
 
 ```
-Script Folder: /path/to/indi_k8055_dome_driver/scripts
+Script Folder: /path/to/indi_k8055_dome_driver/indi_driver/scripts
 Connect script: connect.py
 Disconnect script: disconnect.py
 Get status script: status.py
-Open shutter script: open.py
-Close shutter script: close.py
 Park script: park.py
 Unpark script: unpark.py
 Goto script: goto.py
 Move clockwise script: move_cw.py
 Move counter clockwise script: move_ccw.py
+Open shutter script: open.py
+Close shutter script: close.py
 Abort motion script: abort.py
+```
+
+## 🏗️ Architecture
+
+```
+INDI dome_script ← indi_driver/scripts/ ← lib/dome.py ← lib/pyk8055_wrapper.py ← K8055 Hardware
+```
+
+The driver automatically switches between mock mode (development) and hardware mode (production) based on configuration.
+
+## 🧪 Testing
+
+```bash
+# Quick development test
+python test/run_tests.py --mode smoke
+
+# Hardware validation (after installation)
+export DOME_TEST_MODE=hardware
+make test-hardware-safe
 ```
 
 ## 📁 Project Structure
 
 ```
-scripts/          # The 11 INDI driver scripts (THE DRIVER)
-dome.py           # Core dome control class
-pyk8055_wrapper.py # K8055 hardware interface
-config.py         # Configuration management
-test/             # Comprehensive test suite
+indi_driver/          # Core driver implementation
+  scripts/            # 11 INDI driver scripts (THE DRIVER)
+  lib/                # Core dome control classes
+    dome.py           # Main dome control logic
+    pyk8055_wrapper.py # K8055 hardware abstraction
+    config.py         # Configuration management
+examples/             # Configuration templates
+test/                 # Comprehensive test suite
 ```
 
-## 🔧 Setup
+## 📚 Complete Documentation
 
-1. **Install dependencies**:
-   ```bash
-   ./setup_venv.sh
-   pip install -r requirements.txt
-   ```
+**User Documentation:**
+- **[Installation Guide](doc/Installation_Guide.md)** - Raspberry Pi setup, K8055 installation, PYTHONPATH configuration
+- **[User Guide](doc/User_Guide.md)** - Daily operations, configuration, monitoring, maintenance
+- **[Troubleshooting Guide](doc/Troubleshooting_Guide.md)** - Problem diagnosis, error recovery, support
+- **[Environment Variables](doc/Environment_Variables.md)** - Complete reference for all configuration variables
 
-2. **Test the driver**:
-   ```bash
-   python test/test_indi_scripts.py
-   ```
+**Developer Documentation:**
+- **[Hardware Test Sequencing](doc/Hardware_Test_Sequencing.md)** - Hardware testing procedures
+- **[Architecture](doc/Architecture.md)** - System design and requirements
+- **[Testing Guide](test/README.md)** - Development and validation testing
 
-3. **Configure INDI**: Point your dome_script driver to the `scripts/` directory
+**Production-Ready Features:**
+- ✅ Complete mock/hardware abstraction
+- ✅ Comprehensive test suite (Unit, Integration, BDD)
+- ✅ Hardware safety systems and emergency controls
+- ✅ Weather-aware operations (rain detection)
+- ✅ Calibration and position accuracy validation
+- ✅ INDI-compliant script interface
+- ✅ Production deployment procedures
 
-## 🏗️ Architecture
-
-```
-INDI dome_script ← scripts/ ← dome.py ← pyk8055_wrapper.py ← K8055 Hardware
-```
-
-The driver uses a mock K8055 interface for development and testing, with easy production hardware swapping.
-
-## 📋 Requirements
-
-- Python 3.8+
-- INDI dome_script driver
-- Velleman K8055 USB interface (or mock for testing)
-
-## 🧪 Testing
-
-```bash
-# Test all components
-python test/run_tests.py
-
-# Test INDI driver specifically
-python test/test_indi_scripts.py
-
-# Test hardware wrapper
-python test/test_wrapper_integration.py
-```
-
-## 📚 Documentation
-
-- `scripts/README.md` - INDI script details
-- `doc/Architecture.md` - System design rules
-- `test/README.md` - Testing guide
-
-## 🚀 Production Deployment
-
-1. Install on Raspberry Pi or control computer
-2. Configure dome_config.json for your hardware
-3. Point INDI dome_script to scripts/ directory
-4. Verify with test suite
-
-**This driver is production-ready and INDI-compliant.**
+**This driver is enterprise-ready for observatory automation.**

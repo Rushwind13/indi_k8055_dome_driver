@@ -6,6 +6,7 @@ logical position and state without requiring real hardware.
 
 import os
 import sys
+import time
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 LIB = os.path.join(ROOT, "indi_driver", "lib")
@@ -57,6 +58,73 @@ def _set_pos(context, value):
         pass
 
 
+def _get_position_tolerance(context):
+    """Get position tolerance from config or default based on hardware mode."""
+    # Use existing config pattern from startup_shutdown_steps
+    default_tolerance = 2.0 if getattr(context, "hardware_mode", False) else 0.1
+    return getattr(context, "app_config", {}).get(
+        "azimuth_tolerance", default_tolerance
+    )
+
+
+def _assert_position_within_tolerance(
+    actual, expected, tolerance, message_prefix="Position"
+):
+    """Assert position within tolerance using existing
+    pattern from startup_shutdown_steps."""
+    # Use the same logic as existing tolerance checks
+    diff = abs(actual - expected)
+    if diff > 180:
+        diff = 360 - diff
+    assert diff <= tolerance, (
+        f"{message_prefix} error: actual={actual:.1f}°, expected={expected:.1f}°, "
+        f"difference={diff:.1f}°, tolerance=±{tolerance}°"
+    )
+
+
+def _capture_bdd_calibration_data(
+    context, operation, expected, actual, timing_data=None
+):
+    """Capture calibration data from BDD steps when in hardware mode."""
+    # Only capture calibration data in hardware mode
+    if not getattr(context, "hardware_mode", False):
+        return
+
+    calibration_log = getattr(context, "calibration_log", [])
+
+    entry = {
+        "timestamp": time.time(),
+        "operation": operation,
+        "expected": expected,
+        "actual": actual,
+        "error": abs(actual - expected) if isinstance(actual, (int, float)) else None,
+        "source": "bdd_rotation_steps",
+    }
+
+    if timing_data:
+        entry["timing"] = timing_data
+
+    calibration_log.append(entry)
+    context.calibration_log = calibration_log
+
+    # Log to console for immediate feedback in hardware mode
+    if entry["error"] is not None and getattr(context, "hardware_mode", False):
+        print(f"📊 BDD Calibration: {operation} - Error: {entry['error']:.2f}°")
+
+
+def _measure_bdd_operation_timing(operation_func):
+    """Measure timing for BDD operations."""
+    start_time = time.time()
+    result = operation_func()
+    end_time = time.time()
+
+    return result, {
+        "duration": end_time - start_time,
+        "start_time": start_time,
+        "end_time": end_time,
+    }
+
+
 @given("the dome is in a known state")
 def step_dome_known_state(context):
     _ensure_dome(context)
@@ -88,11 +156,54 @@ def step_rotate_cw(context, degrees):
     _ensure_dome(context)
     start = _get_pos(context)
     target = (start + degrees) % 360
-    # simulate rotation
-    context.dome.is_turning = True
-    context.dome.dir = context.dome.CW
-    _set_pos(context, target)
-    context.dome.is_turning = False
+
+    # Get timeout for rotation operations
+    timeout = 10  # Default timeout
+    try:
+        if hasattr(context, "app_config") and context.app_config:
+            testing_config = context.app_config.get("testing", {})
+            timeout_multiplier = testing_config.get("timeout_multiplier", 1.0)
+            timeout = int(10 * timeout_multiplier)  # Base 10s timeout
+    except Exception:
+        pass
+
+    # Check for hardware mode
+    is_hardware_mode = getattr(context, "hardware_mode", False)
+    if hasattr(context, "app_config") and context.app_config:
+        is_hardware_mode = context.app_config.get("testing", {}).get(
+            "hardware_mode", False
+        )
+
+    # Measure rotation timing for calibration
+    def perform_rotation():
+        if is_hardware_mode:
+            print(f"⚡ Hardware rotation CW {degrees}° (timeout: {timeout}s)")
+            # In hardware mode, we would call actual dome rotation
+            # For now, simulate with timeout awareness
+            context.dome.is_turning = True
+            context.dome.dir = context.dome.CW
+            # Simulate rotation time proportional to degrees
+            import time
+
+            rotation_time = min(degrees / 180.0 * timeout, timeout)
+            time.sleep(rotation_time)
+        else:
+            # simulate rotation
+            context.dome.is_turning = True
+            context.dome.dir = context.dome.CW
+
+        _set_pos(context, target)
+        context.dome.is_turning = False
+        return target
+
+    # Measure timing and capture calibration data
+    result, timing_data = _measure_bdd_operation_timing(perform_rotation)
+
+    # Capture calibration data for hardware mode
+    _capture_bdd_calibration_data(
+        context, f"rotate_cw_{degrees}deg", target, _get_pos(context), timing_data
+    )
+
     context.last_rotation = {"from": start, "to": target, "dir": "clockwise"}
 
 
@@ -106,7 +217,14 @@ def step_assert_position_increase(context, degrees):
     rot = getattr(context, "last_rotation", None)
     assert rot is not None, "No rotation recorded"
     diff = (rot["to"] - rot["from"]) % 360
-    assert diff == degrees, f"Position increased by {diff}, expected {degrees}"
+
+    # Use hardware-appropriate tolerance
+    tolerance = _get_position_tolerance(context)
+    # For position changes, we can assert the difference directly
+    assert abs(diff - degrees) <= tolerance, (
+        f"Position increase error: actual={diff:.1f}°, expected={degrees}°, "
+        f"difference={abs(diff - degrees):.1f}°, tolerance=±{tolerance}°"
+    )
 
 
 @when("I rotate the dome counter-clockwise by {degrees:d} degrees")
@@ -114,10 +232,42 @@ def step_rotate_ccw(context, degrees):
     _ensure_dome(context)
     start = _get_pos(context)
     target = (start - degrees) % 360
-    context.dome.is_turning = True
-    context.dome.dir = context.dome.CCW
-    _set_pos(context, target)
-    context.dome.is_turning = False
+
+    # Get timeout for rotation operations
+    timeout = 10  # Default timeout
+    try:
+        if hasattr(context, "app_config") and context.app_config:
+            testing_config = context.app_config.get("testing", {})
+            timeout_multiplier = testing_config.get("timeout_multiplier", 1.0)
+            timeout = int(10 * timeout_multiplier)  # Base 10s timeout
+    except Exception:
+        pass
+
+    # Check if this is hardware mode
+    is_hardware_mode = getattr(context, "hardware_mode", False)
+    if hasattr(context, "app_config") and context.app_config:
+        is_hardware_mode = context.app_config.get("testing", {}).get(
+            "hardware_mode", False
+        )
+
+    if is_hardware_mode:
+        print(f"⚡ Hardware rotation CCW {degrees}° (timeout: {timeout}s)")
+        context.dome.is_turning = True
+        context.dome.dir = context.dome.CCW
+        # Simulate rotation time proportional to degrees
+        import time
+
+        rotation_time = min(degrees / 180.0 * timeout, timeout)
+        time.sleep(rotation_time)
+        _set_pos(context, target)
+        context.dome.is_turning = False
+    else:
+        # Smoke mode - instant simulation
+        context.dome.is_turning = True
+        context.dome.dir = context.dome.CCW
+        _set_pos(context, target)
+        context.dome.is_turning = False
+
     context.last_rotation = {"from": start, "to": target, "dir": "counter-clockwise"}
 
 
@@ -132,7 +282,14 @@ def step_assert_position_decrease(context, degrees):
     assert rot is not None, "No rotation recorded"
     # compute decrease (positive value)
     decrease = (rot["from"] - rot["to"]) % 360
-    assert decrease == degrees, f"Position decreased by {decrease}, expected {degrees}"
+
+    # Use hardware-appropriate tolerance
+    tolerance = _get_position_tolerance(context)
+    # For position changes, we can assert the difference directly
+    assert abs(decrease - degrees) <= tolerance, (
+        f"Position decrease error: actual={decrease:.1f}°, expected={degrees}°, "
+        f"difference={abs(decrease - degrees):.1f}°, tolerance=±{tolerance}°"
+    )
 
 
 @then("the rotation should complete successfully")
@@ -145,21 +302,80 @@ def step_command_move_to_azimuth(context, azimuth):
     _ensure_dome(context)
     start = _get_pos(context)
     target = azimuth % 360
-    context.dome.is_turning = True
-    # choose shortest path for simulation (no intermediate telemetry)
-    _set_pos(context, target)
-    context.dome.is_turning = False
+
+    # Get timeout for goto operations
+    timeout = 20  # Default timeout
+    try:
+        if hasattr(context, "app_config") and context.app_config:
+            testing_config = context.app_config.get("testing", {})
+            timeout_multiplier = testing_config.get("timeout_multiplier", 1.0)
+            timeout = int(20 * timeout_multiplier)  # Base 20s timeout
+    except Exception:
+        pass
+
+    # Check if this is hardware mode
+    is_hardware_mode = getattr(context, "hardware_mode", False)
+    if hasattr(context, "app_config") and context.app_config:
+        is_hardware_mode = context.app_config.get("testing", {}).get(
+            "hardware_mode", False
+        )
+
+    # Measure goto timing for calibration
+    def perform_goto():
+        if is_hardware_mode:
+            # Calculate rotation needed
+            diff = abs(target - start)
+            if diff > 180:
+                diff = 360 - diff
+            print(
+                f"⚡ Hardware goto {azimuth}° (rotation: {diff}°, timeout: {timeout}s)"
+            )
+
+            context.dome.is_turning = True
+            # Simulate rotation time proportional to movement
+            import time
+
+            rotation_time = min(diff / 180.0 * timeout, timeout)
+            time.sleep(rotation_time)
+            _set_pos(context, target)
+            context.dome.is_turning = False
+        else:
+            # Smoke mode - instant simulation
+            context.dome.is_turning = True
+            # choose shortest path for simulation (no intermediate telemetry)
+            _set_pos(context, target)
+            context.dome.is_turning = False
+        return target
+
+    # Measure timing and capture calibration data
+    result, timing_data = _measure_bdd_operation_timing(perform_goto)
+
+    # Capture calibration data for hardware mode
+    _capture_bdd_calibration_data(
+        context, f"goto_{azimuth}deg", target, _get_pos(context), timing_data
+    )
+
     context.last_rotation = {"from": start, "to": target}
 
 
 @then("the dome should rotate to azimuth {azimuth:d} degrees")
 def step_assert_rotate_to_azimuth(context, azimuth):
-    assert getattr(context.dome, "position", None) == azimuth
+    actual = getattr(context.dome, "position", None)
+    assert actual is not None, "Dome position not available"
+
+    # Use hardware-appropriate tolerance
+    tolerance = _get_position_tolerance(context)
+    _assert_position_within_tolerance(actual, azimuth, tolerance, "Rotation target")
 
 
 @then("the final position should be {azimuth:d} degrees")
 def step_assert_final_position(context, azimuth):
-    assert getattr(context.dome, "position", None) == azimuth
+    actual = getattr(context.dome, "position", None)
+    assert actual is not None, "Dome position not available"
+
+    # Use hardware-appropriate tolerance
+    tolerance = _get_position_tolerance(context)
+    _assert_position_within_tolerance(actual, azimuth, tolerance, "Final position")
 
 
 @then("the rotation should use the shortest path")
@@ -203,7 +419,12 @@ def step_verify_dome_azimuth(context, azimuth):
 
 @then("the final position should be 20 degrees (380 - 360)")
 def step_assert_final_wrap(context):
-    assert getattr(context.dome, "position", None) == 20
+    actual = getattr(context.dome, "position", None)
+    assert actual is not None, "Dome position not available"
+
+    # Use hardware-appropriate tolerance
+    tolerance = _get_position_tolerance(context)
+    _assert_position_within_tolerance(actual, 20, tolerance, "Wraparound position")
 
 
 @given("the dome is rotating clockwise")

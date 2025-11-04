@@ -40,7 +40,23 @@ pre-commit install
 make ci  # Should pass all checks
 ```
 
-## 🔄 Development Workflow
+## � Developer Reference Documents
+
+This development directory contains detailed technical documentation for contributors:
+
+### Task Planning and Implementation History
+- **[PRODUCTION_READINESS_TASKS.md](PRODUCTION_READINESS_TASKS.md)** - Complete task tracking for production readiness implementation (Tasks 1-8)
+- **[HARDWARE_INTEGRATION_TEST_PLAN.md](HARDWARE_INTEGRATION_TEST_PLAN.md)** - Comprehensive 8-hour hardware integration testing plan with rollback procedures
+
+### User Documentation (Main Directory)
+For end-user documentation, see the doc/ directory:
+- **[Installation Guide](../doc/Installation_Guide.md)** - Raspberry Pi setup and installation
+- **[User Guide](../doc/User_Guide.md)** - Day-to-day operations and configuration
+- **[Troubleshooting Guide](../doc/Troubleshooting_Guide.md)** - Problem diagnosis and solutions
+- **[Hardware Test Sequencing](../doc/Hardware_Test_Sequencing.md)** - Hardware testing procedures
+- **[Environment Variables](../doc/Environment_Variables.md)** - Complete configuration variable reference
+
+## �🔄 Development Workflow
 
 ### Branch Strategy
 - `main`: Production-ready code (protected)
@@ -208,19 +224,17 @@ make help               # Show all commands
 
 ```
 indi_k8055_dome_driver/
-├── dome.py                 # Main dome control class
-├── config.py               # Configuration management
-├── pyk8055_wrapper.py      # Hardware interface wrapper
-├── requirements*.txt       # Dependencies
-├── setup_venv.sh          # Environment setup script
-├── Makefile               # Development commands
-├── .pre-commit-config.yaml # Pre-commit hooks
-├── .github/workflows/     # CI/CD workflows
-├── test/                  # Test suite
-│   ├── features/          # BDD scenarios
-│   ├── steps/             # BDD step definitions
-│   └── run_tests.py       # Test runner
-└── docs/                  # Documentation (if exists)
+├── indi_driver/           # Core driver implementation
+│   ├── scripts/           # 11 INDI driver scripts
+│   └── lib/               # Core classes (dome.py, config.py, pyk8055_wrapper.py)
+├── examples/              # Configuration templates
+├── test/                  # Comprehensive test suite
+├── development/           # Developer documentation and tools
+├── doc/                   # Technical documentation
+├── requirements*.txt      # Dependencies
+├── setup_venv.sh         # Environment setup script
+├── Makefile              # Development commands
+└── .pre-commit-config.yaml # Pre-commit hooks
 ```
 
 ## 🔒 Security Considerations
@@ -239,10 +253,13 @@ indi_k8055_dome_driver/
 
 ## 📚 Additional Resources
 
-- **Project README**: Comprehensive usage documentation
-- **Test Documentation**: `test/README.md` for testing details
-- **API Documentation**: In-code docstrings and comments
-- **Safety Guidelines**: Hardware safety considerations
+- **[Installation Guide](../doc/Installation_Guide.md)**: Complete setup instructions
+- **[User Guide](../doc/User_Guide.md)**: Day-to-day operations
+- **[Troubleshooting Guide](../doc/Troubleshooting_Guide.md)**: Problem diagnosis
+- **[Hardware Test Sequencing](../doc/Hardware_Test_Sequencing.md)**: Hardware testing procedures
+- **[Environment Variables](../doc/Environment_Variables.md)**: Configuration variable reference
+- **[Test Documentation](../test/README.md)**: Testing framework details
+- **[Architecture Documentation](../doc/Architecture.md)**: System design
 
 ## 💬 Getting Help
 

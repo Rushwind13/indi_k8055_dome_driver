@@ -12,6 +12,7 @@ def main():
         0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "lib")
     )
     from dome import Dome
+    from persistence import restore_state, save_state
 
     try:
         # Get azimuth from command line
@@ -21,14 +22,21 @@ def main():
         azimuth = float(sys.argv[1])
 
         dome = Dome()
+        # Restore previous state
+        restore_state(dome)
+        
         try:
             # Use the rotation API to move toward the requested azimuth.
             dome.rotation(azimuth)
+            # Save state after successful movement
+            save_state(dome, "goto")
             sys.exit(0)
         except Exception:
             # If rotation() fails, try using cw() as fallback
             try:
                 dome.cw(amount=azimuth)
+                # Save state after successful movement
+                save_state(dome, "goto")
                 sys.exit(0)
             except Exception:
                 sys.exit(1)

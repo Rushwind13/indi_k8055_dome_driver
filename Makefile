@@ -257,3 +257,47 @@ ci: dev-test ## Run the same checks as CI (useful before pushing)
 # Release preparation
 release-check: clean dev-test security docs ## Run all checks before release
 	@echo "✅ Release checks completed!"
+
+# Python 2.7 validation targets
+test-py27: ## 🐍 Run Python 2.7 validation tests
+	@echo "🐍 Running Python 2.7 validation..."
+	@if [ ! -d "venv_py27" ]; then \
+		echo "❌ Python 2.7 virtual environment not found"; \
+		echo "💡 Run 'make setup-py27' to create it"; \
+		exit 1; \
+	fi
+	source venv_py27/bin/activate && python test/python2/validate_py27.py
+
+test-py27-verbose: ## 🐍 Run Python 2.7 validation with verbose output
+	@echo "🐍 Running Python 2.7 validation (verbose)..."
+	source venv_py27/bin/activate && python test/python2/validate_py27.py --verbose
+
+test-py27-persistence: ## 🐍 Run Python 2.7 persistence tests only
+	@echo "🐍 Running Python 2.7 persistence tests..."
+	source venv_py27/bin/activate && python test/python2/validate_py27.py --persistence-only
+
+test-py27-full: ## 🐍 Run complete Python 2.7 validation with linting
+	@echo "🐍 Running complete Python 2.7 validation..."
+	@if [ -f "test/python2/run_precommit_py27.sh" ]; then \
+		echo "🔍 Running Python 2.7 linting..."; \
+		./test/python2/run_precommit_py27.sh; \
+	fi
+	$(MAKE) test-py27-verbose
+
+setup-py27: ## 🐍 Set up Python 2.7 virtual environment
+	@echo "🐍 Setting up Python 2.7 virtual environment..."
+	@if command -v python2.7 >/dev/null 2>&1; then \
+		python2.7 -m virtualenv venv_py27; \
+		echo "✅ Python 2.7 environment created"; \
+		echo "💡 Activate with: source venv_py27/bin/activate"; \
+	else \
+		echo "❌ Python 2.7 not found on system"; \
+		echo "💡 Install Python 2.7 first"; \
+		exit 1; \
+	fi
+
+py27-validation: ## 🐍 Complete Python 2.7 validation workflow
+	@echo "🐍 Running complete Python 2.7 validation workflow..."
+	$(MAKE) test-py27-full
+	@echo "✅ Python 2.7 validation complete!"
+	@echo "🚀 Ready for deployment to Python 2.7 environments"

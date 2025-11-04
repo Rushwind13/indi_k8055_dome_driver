@@ -1,0 +1,28 @@
+{
+  "ticks_to_degrees": 4.0, 
+  "shutter_closed": true, 
+  "direction": false, 
+  "home_position": 225, 
+  "device_connected": true, 
+  "script": "abort", 
+  "is_turning": false, 
+  "timestamp": "2025-11-04T08:58:53.731598", 
+  "poll_interval": 0.5, 
+  "is_home": false, 
+  "max_open_time": 30.0, 
+  "shutter_closing": false, 
+  "shutter_open": false, 
+  "shutter_opening": false, 
+  "pins": {
+    "shutter_direction": 6, 
+    "shutter_move": 5, 
+    "dome_direction": 2, 
+    "dome_rotate": 1, 
+    "home_switch": 2, 
+    "encoder_a": 1, 
+    "encoder_b": 5
+  }, 
+  "position": 0.0, 
+  "encoder_a": 0, 
+  "encoder_b": -1
+}

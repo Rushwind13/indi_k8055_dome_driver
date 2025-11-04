@@ -12,9 +12,12 @@ def main():
         0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "lib")
     )
     from dome import Dome
+    from persistence import restore_state, save_state
 
     try:
         dome = Dome()
+        # Restore previous state
+        restore_state(dome)
         # derive status from library methods/attributes
         try:
             parked = bool(getattr(dome, "is_home", False) or dome.isHome())
@@ -41,6 +44,9 @@ def main():
         else:
             # Write to stdout
             print(status_line)
+
+        # Save current state for next script execution
+        save_state(dome, "status")
 
         sys.exit(0)
     except Exception:

@@ -54,7 +54,8 @@ class k8055:
 
         if self.debug:
             mode_text = "mock" if mock else "hardware"
-            print("K8055 {} device initialized at address {}".format(mode_text, BoardAddress))
+            print("K8055 {} device initialized at address {}"
+                  .format(mode_text, BoardAddress))
 
         # Auto-open device
         try:
@@ -82,7 +83,8 @@ class k8055:
             return 0
         else:
             # In production mode, try to connect to real hardware
-            self._log("Attempting to connect to hardware at address {}".format(BoardAddress))
+            self._log("Attempting to connect to hardware at address {}"
+                      .format(BoardAddress))
             try:
                 # Try to import real libk8055 hardware interface
                 try:
@@ -137,13 +139,15 @@ class k8055:
                         "  - K8055 board is connected via USB\n"
                         "  - Board address {} is correct (0-3)\n"
                         "  - USB permissions (may need sudo or udev rules)\n"
-                        "  - No other applications using the device".format(hw_error, BoardAddress)
+                        "  - No other applications using the device"
+                        .format(hw_error, BoardAddress)
                     )
 
             except (ImportError, Exception) as e:
                 self._log("Hardware connection failed: {}".format(e))
                 raise K8055Error(
-                    "Could not open hardware device at address {}: {}".format(BoardAddress, e)
+                    "Could not open hardware device at address {}: {}"
+                    .format(BoardAddress, e)
                 )
 
     def CloseDevice(self):
@@ -217,7 +221,8 @@ class k8055:
         if self._hardware_device and not self.mock:
             try:
                 result = self._hardware_device.ReadDigitalChannel(Channel)
-                self._log("Reading digital channel {} (hardware): {}".format(Channel, result))
+                self._log("Reading digital channel {} (hardware): {}"
+                          .format(Channel, result))
                 return result
             except Exception as e:
                 self._log("Hardware ReadDigitalChannel failed: {}".format(e))

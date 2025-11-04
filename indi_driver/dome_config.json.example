@@ -9,8 +9,8 @@
         "shutter_lower_limit": 2,
         "dome_rotate": 1,
         "dome_direction": 2,
-        "shutter_move": 1,
-        "shutter_direction": 2
+        "shutter_move": 5,
+        "shutter_direction": 6
     },
     "calibration": {
         "_comment": "Dome-specific calibration values - MUST be set for your dome",

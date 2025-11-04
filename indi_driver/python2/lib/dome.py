@@ -73,8 +73,9 @@ class Dome:
         # Shutter timing constants
         if self.config.get("testing", {}).get("smoke_test", False):
             self.MAX_OPEN_TIME = self.config["testing"]["smoke_test_timeout"]
-            print("SMOKE TEST MODE: Using short timeout of {}s"
-                  .format(self.MAX_OPEN_TIME))
+            print(
+                "SMOKE TEST MODE: Using short timeout of {}s".format(self.MAX_OPEN_TIME)
+            )
         else:
             self.MAX_OPEN_TIME = (
                 30.0  # Maximum time to wait for shutter operation (seconds)
@@ -291,8 +292,11 @@ class Dome:
         Wait for shutter operation to complete
         Since there's no telemetry, we just wait MAX_OPEN_TIME
         """
-        print("Waiting {}s for {} to complete..."
-              .format(self.MAX_OPEN_TIME, operation_name))
+        print(
+            "Waiting {}s for {} to complete...".format(
+                self.MAX_OPEN_TIME, operation_name
+            )
+        )
         elapsed = 0
         while elapsed < self.MAX_OPEN_TIME:
             time.sleep(self.POLL)
@@ -302,8 +306,9 @@ class Dome:
         # Stop the movement signal after timeout
         self.shutter_stop()
         print(
-            "{} operation completed (timed out at {}s)"
-            .format(operation_name, self.MAX_OPEN_TIME)
+            "{} operation completed (timed out at {}s)".format(
+                operation_name, self.MAX_OPEN_TIME
+            )
         )
 
     def setOpen(self):

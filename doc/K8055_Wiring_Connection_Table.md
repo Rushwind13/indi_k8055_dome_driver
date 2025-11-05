@@ -8,7 +8,7 @@ This document provides the complete mapping of K8055 interface board pins to phy
 
 The Velleman K8055 USB interface board provides:
 - **Digital Inputs**: 5 channels (1-5) - TTL level inputs for switches/sensors
-- **Digital Outputs**: 8 channels (1-8) - Open collector outputs for relays/motors  
+- **Digital Outputs**: 8 channels (1-8) - Open collector outputs for relays/motors
 - **Analog Inputs**: 2 channels (1-2) - 0-255 range for analog sensors
 - **Analog Outputs**: 2 channels (1-2) - 0-255 range for analog control
 
@@ -41,7 +41,7 @@ The Velleman K8055 USB interface board provides:
 | 1 | *unused* | Available | 0-255 | Could be used for analog sensors |
 | 2 | *unused* | Available | 0-255 | Could be used for analog sensors |
 
-### Analog Outputs (1-2) - Not Currently Used  
+### Analog Outputs (1-2) - Not Currently Used
 | Pin | Function | Description | Range | Usage |
 |-----|----------|-------------|-------|-------|
 | 1 | *unused* | Available | 0-255 | Could be used for analog control |
@@ -59,7 +59,7 @@ The dome uses **4 relays total** for motor control:
 - **Direction Telemetry** (Pin 4): Reads back actual direction state from DO2
   - Allows verification that commanded direction matches actual relay state
 
-### Shutter Motor Control  
+### Shutter Motor Control
 - **Enable Relay** (shutter_move, Pin 5): ON = motor can run, OFF = motor stopped
 - **Direction Relay** (shutter_direction, Pin 6): Controls OPEN/CLOSE direction
   - `shutter_direction = OFF (False)` → **Opening Direction**
@@ -122,7 +122,7 @@ K8055 USB Interface Board
 
 Digital Inputs (1-5):
 DI1 ──► Encoder Channel A
-DI2 ──► Home Switch  
+DI2 ──► Home Switch
 DI3 ──► [Available]
 DI4 ──► Direction Telemetry (wired to DO2)
 DI5 ──► Encoder Channel B
@@ -132,7 +132,7 @@ DO1 ──► Rotation Enable Relay ──► Rotation Motor Power
 DO2 ──► Rotation Direction Relay ──► Rotation Motor Direction
     └──► (also wired to DI4 for telemetry feedback)
 DO3 ──► [Available]
-DO4 ──► [Available]  
+DO4 ──► [Available]
 DO5 ──► Shutter Enable Relay ──► Shutter Motor Power
 DO6 ──► Shutter Direction Relay ──► Shutter Motor Direction
 DO7 ──► [Available]
@@ -141,7 +141,7 @@ DO8 ──► [Available]
 Analog I/O:
 AI1 ──► [Available]
 AI2 ──► [Available]
-AO1 ──► [Available]  
+AO1 ──► [Available]
 AO2 ──► [Available]
 ```
 
@@ -157,6 +157,6 @@ AO2 ──► [Available]
 
 ---
 
-**Last Updated:** November 4, 2025  
-**Status:** Pin mapping complete - ready for hardware validation  
+**Last Updated:** November 4, 2025
+**Status:** Pin mapping complete - ready for hardware validation
 **Next Action:** Validate pin configuration with actual hardware using k8055_pin_tester.py

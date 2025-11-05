@@ -4,10 +4,10 @@
 
 ## 📋 Executive Summary
 
-**Status**: ⚠️ **Logic Issues Found**  
-**Critical Issues**: 3 relay control problems identified  
-**Safety Issues**: 1 emergency stop sequence issue  
-**Timing Issues**: 2 relay sequencing problems  
+**Status**: ⚠️ **Logic Issues Found**
+**Critical Issues**: 3 relay control problems identified
+**Safety Issues**: 1 emergency stop sequence issue
+**Timing Issues**: 2 relay sequencing problems
 
 ## 🔍 Current Relay Control Patterns
 
@@ -30,7 +30,7 @@ def set_rotation(self, dir):
 - ⚠️ **Timing Issue**: No delay between direction set and motor enable
 - ⚠️ **Missing Validation**: No verification that direction relay activated
 
-#### Enable Control Logic  
+#### Enable Control Logic
 **Locations**: `home()`, `rotation()` methods
 ```python
 # Pattern in home() method:
@@ -42,7 +42,7 @@ self.dome.digital_off(self.DOME_ROTATE)  # Disable motor
 if not self.is_turning:
     self.dome.digital_on(self.DOME_ROTATE)  # Enable motor
     self.is_turning = True
-# ... movement logic ...  
+# ... movement logic ...
 self.dome.digital_off(self.DOME_ROTATE)     # Disable motor
 ```
 
@@ -90,11 +90,11 @@ self.dome.digital_on(self.SHUTTER_MOVE)      # Enable shutter motor
 self.dome.digital_off(self.SHUTTER_DIR)     # Direction: OFF = Opening
 ```
 
-### Closing Operation  
+### Closing Operation
 **Method**: `shutter_close()`
 **Relay Sequence**:
 ```python
-self.dome.digital_on(self.SHUTTER_MOVE)      # Enable shutter motor  
+self.dome.digital_on(self.SHUTTER_MOVE)      # Enable shutter motor
 self.dome.digital_on(self.SHUTTER_DIR)      # Direction: ON = Closing
 ```
 
@@ -111,7 +111,7 @@ self.dome.digital_on(self.SHUTTER_DIR)      # Direction: ON = Closing
 **Method**: `rotation_stop()`
 ```python
 self.dome.digital_off(self.DOME_ROTATE)  # Disable rotation
-self.dome.digital_off(self.DOME_DIR)     # Clear direction  
+self.dome.digital_off(self.DOME_DIR)     # Clear direction
 ```
 
 ### Shutter Emergency Stop
@@ -136,7 +136,7 @@ self.dome.digital_off(self.SHUTTER_DIR)   # Clear direction
 
 **Locations**:
 - `shutter_open()`: Lines 242-243
-- `shutter_close()`: Lines 263-264  
+- `shutter_close()`: Lines 263-264
 - `home()` and `rotation()`: Via `set_rotation()` + immediate enable
 
 ### Issue 2: Missing Direction Validation
@@ -163,7 +163,7 @@ self.dome.digital_off(self.SHUTTER_DIR)   # Clear direction
 
 ### Hardware Constants Validation
 ```python
-self.CW = False   # ✅ Correct: CW = direction relay OFF  
+self.CW = False   # ✅ Correct: CW = direction relay OFF
 self.CCW = True   # ✅ Correct: CCW = direction relay ON
 ```
 
@@ -175,14 +175,14 @@ self.CCW = True   # ✅ Correct: CCW = direction relay ON
 **Risk**: Motor direction undefined during startup transient
 **Solution**: Add 20ms delay between direction set and motor enable
 
-### Priority 2: Bidirectional Rotation Bug  
+### Priority 2: Bidirectional Rotation Bug
 **File**: `dome.py` - `rotation()` method, line ~150
 **Issue**: Only works for positive encoder counts (one direction)
 **Impact**: Rotation commands fail in CCW direction
 **Solution**: Implement direction-aware position tracking
 
 ### Priority 3: Direction Telemetry Implementation
-**File**: `dome.py` - Add new method  
+**File**: `dome.py` - Add new method
 **Issue**: DO2→DI4 telemetry wiring not used
 **Benefit**: Validate direction relay activation before motor enable
 **Solution**: Add `verify_direction()` method reading DI4
@@ -191,13 +191,13 @@ self.CCW = True   # ✅ Correct: CCW = direction relay ON
 
 ### Safe Motor Start Sequence
 1. **Stop Motion**: Ensure enable relay is OFF
-2. **Set Direction**: Activate direction relay (DO2 or DO6)  
+2. **Set Direction**: Activate direction relay (DO2 or DO6)
 3. **Settling Delay**: Wait 20-50ms for relay to settle
 4. **Verify Direction**: Read telemetry (DI4) to confirm direction
 5. **Enable Motor**: Activate enable relay (DO1 or DO5)
 6. **Monitor Motion**: Track position and status during movement
 
-### Safe Motor Stop Sequence  
+### Safe Motor Stop Sequence
 1. **Disable Motor**: Turn OFF enable relay immediately
 2. **Settling Delay**: Wait 10ms for motor to stop
 3. **Clear Direction**: Turn OFF direction relay
@@ -206,24 +206,24 @@ self.CCW = True   # ✅ Correct: CCW = direction relay ON
 ## 📋 Testing Requirements
 
 ### Relay Timing Tests Needed
-- [ ] Measure actual relay activation time  
+- [ ] Measure actual relay activation time
 - [ ] Test direction stability during enable transient
 - [ ] Verify emergency stop response time (<2 seconds)
 - [ ] Test relay state persistence after power cycle
 
-### Direction Validation Tests Needed  
+### Direction Validation Tests Needed
 - [ ] Test DO2→DI4 telemetry feedback loop
 - [ ] Verify direction commands match actual relay states
 - [ ] Test direction change timing and reliability
 
 ### Bidirectional Rotation Tests Needed
 - [ ] Test CW rotation accuracy over various distances
-- [ ] Test CCW rotation accuracy over various distances  
+- [ ] Test CCW rotation accuracy over various distances
 - [ ] Verify encoder counting in both directions
 - [ ] Test rotation reversals and direction changes
 
 ---
 
-**Analysis Date**: November 4, 2025  
-**Status**: Relay control logic analysis complete, critical issues identified  
+**Analysis Date**: November 4, 2025
+**Status**: Relay control logic analysis complete, critical issues identified
 **Next Action**: Implement relay sequencing fixes and bidirectional rotation logic

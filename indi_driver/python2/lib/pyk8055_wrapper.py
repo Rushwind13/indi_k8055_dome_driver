@@ -383,3 +383,7 @@ class device:
     def counter_set_debounce(self, channel, time):
         """Set counter debounce time (old interface)"""
         return self.k8055_device.SetCounterDebounceTime(channel, time)
+
+    def read_all_digital(self):
+        """Read all digital inputs as bitmask (wrapper interface)"""
+        return self.k8055_device.ReadAllDigital()

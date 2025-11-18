@@ -117,6 +117,12 @@ class Dome:
         print("done.")
         sys.stdout.flush()
 
+    def direction_str(self):
+        """
+        Get string representation of current rotation direction
+        """
+        return "CW" if self.dir == self.CW else "CCW"
+
     def cw(self, amount=0, to_home=False):
         """
         Rotate clockwise using non-blocking control with proper relay sequencing
@@ -278,7 +284,7 @@ class Dome:
         self.encoder_direction = None
         self.encoder_errors = 0
         direction_validated = False
-        expected_direction = "CW" if self.dir == self.CW else "CCW"
+        expected_direction = self.direction_str()
 
         # Set fast polling mode for homing optimization
         original_poll_rate = self.POLL

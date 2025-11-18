@@ -127,12 +127,7 @@ class k8055:
 
                 except ImportError:
                     self._log("pyk8055 module not found - hardware not available")
-                    raise K8055Error(
-                        "Hardware mode requires 'pyk8055' module. Install with:\n"
-                        "  sudo apt-get install libk8055-dev python3-dev\n"
-                        "  pip install pyk8055\n"
-                        "Or build from source: https://github.com/rm-hull/pyk8055"
-                    )
+                    raise K8055Error("Hardware mode requires 'pyk8055' module.")
                 except Exception as hw_error:
                     self._log("Hardware connection failed: {}".format(hw_error))
                     raise K8055Error(

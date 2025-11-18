@@ -14,9 +14,9 @@
     "calibration": {
         "_comment": "Dome-specific calibration values - MUST be set for your dome",
         "home_position": 225,
-        "ticks_to_degrees": 4.0,
-        "poll_interval": 0.5,
-        "home_poll_fast": 0.05,
+        "ticks_to_degrees": 3.0,
+        "poll_interval": 0.005,
+        "home_poll_fast": 0.001,
         "home_switch_debounce": 0.1
     },
     "hardware": {

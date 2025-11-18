@@ -459,7 +459,7 @@ class Dome:
 
     def get_pos(self):
         curr_ticks = self.dome.counter_read(self.A)
-        self.position = curr_ticks * self.TICKS_TO_DEG
+        self.position = curr_ticks  # * self.TICKS_TO_DEG
         return self.position
 
     # Reset the tick counters to 0 when you reach HOME
@@ -529,10 +529,10 @@ class Dome:
         """
         if self.last_encoder_state is None:
             self.last_encoder_state = current_state
-            return None
+            return "Initializing"
 
         if current_state == self.last_encoder_state:
-            return None  # No change
+            return "No change"  # No change
 
         # Define valid state transitions for each direction
         cw_transitions = {

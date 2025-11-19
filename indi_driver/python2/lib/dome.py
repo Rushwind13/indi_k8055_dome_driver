@@ -307,6 +307,9 @@ class Dome:
         return self.position
 
     def update_pos(self):
+        if self.isHome():
+            self.set_pos(self.HOME_POS)
+            return
         encoder_ticks, _ = self.counter_read()
         change_in_pos = (encoder_ticks / self.DEG_TO_TICKS) % 360.0
         if self.dir == self.CW:
@@ -314,6 +317,16 @@ class Dome:
         else:
             new_pos = (self.get_pos() - change_in_pos) % 360.0
         self.set_pos(new_pos)
+
+    def current_pos(self):
+        orig_pos = self.get_pos()
+        encoder_ticks, _ = self.counter_read()
+        change_in_pos = (encoder_ticks / self.DEG_TO_TICKS) % 360.0
+        if self.dir == self.CW:
+            new_pos = (orig_pos + change_in_pos) % 360.0
+        else:
+            new_pos = (orig_pos - change_in_pos) % 360.0
+        return new_pos
 
     # Reset the tick counters to 0 when you reach target position
     def set_pos(self, in_pos):
@@ -335,7 +348,7 @@ class Dome:
     def counter_read(self):
         encoder_ticks = self.dome.counter_read(1)
         home_count = self.dome.counter_read(2)
-        print(encoder_ticks, home_count)
+        # print(encoder_ticks, home_count)
         return encoder_ticks, home_count
 
     # 2-Bit Gray Code Encoder Implementation

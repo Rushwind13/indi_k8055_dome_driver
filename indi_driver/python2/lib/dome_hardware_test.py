@@ -60,8 +60,7 @@ if __name__ == "__main__":
         exit(1)
 
     print("Starting real hardware test: rotating dome for 30 seconds...")
-    dome.set_rotation(dome.CW)
-    dome.start_rotation()
+    dome.cw()
     start_time = time.time()
     poll_interval = dome.POLL if hasattr(dome, "POLL") else 0.2
     homes = 0
@@ -73,7 +72,7 @@ if __name__ == "__main__":
     run_time = 0
     try:
         while run_time < CW_TEST_DURATION:
-            position = dome.get_pos()
+            position = dome.current_pos()
             # counters = dome.counter_read()
             counters = (dome.dome.digital_in(dome.A), dome.dome.digital_in(dome.B))
             home_switch = dome.dome.digital_in(dome.HOME)
@@ -106,21 +105,20 @@ if __name__ == "__main__":
             time.sleep(poll_interval)
             run_time = time.time() - start_time
     finally:
-        dome.stop_rotation()
+        dome.rotation_stop()
         cwtime = run_time
         print("Test complete. Dome stopped. total homes: {}".format(homes))
         print("---Time to rotate back to home: {}".format(cwtime))
 
     cwhomes = homes
 
-    dome.set_rotation(dome.CCW)
-    dome.start_rotation()
+    dome.ccw()
     start_time = time.time()
     run_time = 0
     homes = 0
     try:
         while run_time < CCW_TEST_DURATION:
-            position = dome.get_pos()
+            position = dome.current_pos()
             # counters = dome.counter_read()
             counters = (dome.dome.digital_in(dome.A), dome.dome.digital_in(dome.B))
             home_switch = dome.dome.digital_in(dome.HOME)
@@ -153,7 +151,7 @@ if __name__ == "__main__":
             time.sleep(poll_interval)
             run_time = time.time() - start_time
     finally:
-        dome.stop_rotation()
+        dome.rotation_stop()
         ccwtime = run_time
         print("Test complete. Dome stopped. total homes: {}".format(homes))
         print("---Time to rotate back to home: {}".format(ccwtime))

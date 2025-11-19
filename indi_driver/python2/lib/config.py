@@ -26,7 +26,7 @@ DEFAULT_CONFIG = {
     # Dome-specific calibration values
     "calibration": {
         "home_position": 0,  # Default to 0, user must calibrate
-        "ticks_to_degrees": 1.0,  # Default ratio, user must calibrate
+        "degrees_to_ticks": 1.0,  # Default ratio, user must calibrate
         "poll_interval": 0.5,  # Polling interval in seconds
     },
     # Hardware settings
@@ -122,7 +122,7 @@ def create_sample_config(filename="dome_config.json.example"):
         "calibration": {
             "_comment": "Dome-specific calibration values - MUST be set for your dome",
             "home_position": 225,
-            "ticks_to_degrees": 4.0,
+            "degrees_to_ticks": 1.146,
             "poll_interval": 0.5,
         },
         "hardware": {

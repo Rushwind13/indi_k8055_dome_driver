@@ -88,7 +88,7 @@ class DomePersistence(object):
                 # Position and movement
                 "position": current_position,
                 "home_position": getattr(dome, "HOME_POS", 0.0),
-                "ticks_to_degrees": getattr(dome, "TICKS_TO_DEG", 1.0),
+                "degrees_to_ticks": getattr(dome, "DEG_TO_TICKS", 1.0),
                 # Encoder states
                 "encoder_a": encoder_a,
                 "encoder_b": encoder_b,
@@ -186,7 +186,7 @@ class DomePersistence(object):
             # Restore position and calibration
             dome.position = state.get("position", 0.0)
             dome.HOME_POS = state.get("home_position", 0.0)
-            dome.TICKS_TO_DEG = state.get("ticks_to_degrees", 1.0)
+            dome.DEG_TO_TICKS = state.get("degrees_to_ticks", 1.0)
 
             # Restore movement states
             dome.is_home = state.get("is_home", False)
@@ -345,7 +345,7 @@ if __name__ == "__main__":
                     },
                     "calibration": {
                         "home_position": 0.0,
-                        "ticks_to_degrees": 1.0,
+                        "degrees_to_ticks": 1.0,
                         "poll_interval": 0.1,
                     },
                     "hardware": {"mock_mode": True, "device_port": 0},

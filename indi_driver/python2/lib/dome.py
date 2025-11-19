@@ -95,8 +95,8 @@ class Dome:
         self.HOME_POS = self.config["calibration"].get(
             "home_position", 0.0
         )  # Default to 0 if missing
-        self.TICKS_TO_DEG = self.config["calibration"].get(
-            "ticks_to_degrees", 1.0
+        self.DEG_TO_TICKS = self.config["calibration"].get(
+            "degrees_to_ticks", 1.0
         )  # Default ratio
 
         # Shutter timing constants
@@ -123,46 +123,34 @@ class Dome:
         """
         return "CW" if self.dir == self.CW else "CCW"
 
-    def cw(self, amount=0, to_home=False):
+    def cw(self):
         """
         Rotate clockwise using non-blocking control with proper relay sequencing
         """
-        return self._rotate_direction("CW", self.CW, amount, to_home)
+        return self._rotate_direction(self.CW)
 
-    def ccw(self, amount=0, to_home=False):
+    def ccw(self):
         """
         Rotate counter-clockwise using non-blocking control with proper relay sequencing
         """
-        return self._rotate_direction("CCW", self.CCW, amount, to_home)
+        return self._rotate_direction(self.CCW)
 
-    def _rotate_direction(self, direction_name, direction_value, amount, to_home):
+    def _rotate_direction(self, direction_value):
         """
         Internal method to handle rot in either direction (eliminates code dupe)
         """
-        print("Rotate {}...".format(direction_name))
-        sys.stdout.flush()
-
         # Set direction first (with proper timing)
-        self.set_rotation(direction_value)
-        print("dir set...")
+        self._set_rotation(direction_value)
+
+        print("Rotate {}...".format(self.direction_str()))
         sys.stdout.flush()
 
-        if to_home:
-            # rotate until home switch triggers
-            print("rotating to home pos...")
-            sys.stdout.flush()
-            return self.home()
-        else:
-            # rotate by "amount" degrees
-            print("rotating by amount {}...".format(amount))
-            sys.stdout.flush()
-            result = self.rotation(amount)
-            print("done.")
-            sys.stdout.flush()
-            return result
+        # Start rotation (go until aborted)
+        result = self._rotation_start()
+        return result
 
     # Default to relay "off"
-    def set_rotation(self, dir):
+    def _set_rotation(self, dir):
         """
         Set rotation direction relay with proper timing
         This method implements safe relay sequencing
@@ -171,7 +159,7 @@ class Dome:
         # First, ensure motor is stopped
         if self.is_turning:
             print("Warning: Setting direction while motor running - stopping first")
-            self.stop_rotation()
+            self.rotation_stop()
             time.sleep(0.1)  # Brief pause for motor to stop
 
         # Set direction relay with proper state
@@ -186,7 +174,7 @@ class Dome:
         # Verify direction if telemetry available (DI4 connected to DO2)
         # Note: This will be implemented when direction telemetry is added
 
-    def start_rotation(self):
+    def _rotation_start(self):
         """
         Start dome rotation in the previously set direction
         Non-blocking operation - returns immediately after starting motor
@@ -195,18 +183,15 @@ class Dome:
             print("Warning: Rotation already in progress")
             return False
 
-        print(
-            "Starting rotation in direction: {}".format(
-                "CCW" if self.dir == self.CCW else "CW"
-            )
-        )
+        print("Starting rotation in direction: {}".format(self.direction_str()))
 
         # Enable motor (direction should already be set via set_rotation)
+        self.encoder_reset()
         self.dome.digital_on(self.DOME_ROTATE)
         self.is_turning = True
         return True
 
-    def stop_rotation(self):
+    def rotation_stop(self):
         """
         Stop dome rotation immediately
         Non-blocking operation - disables motor and clears state
@@ -223,260 +208,120 @@ class Dome:
         self.dome.digital_off(self.DOME_DIR)
 
         # Update state
+        self.update_pos()
         self.is_turning = False
         print("Dome rotation stopped.")
         return True
 
     def home(self):
         """
-        Move dome to home position with intelligent direction selection
-        Automatically chooses the shortest path to home position
+        Move dome to home position
         """
-        current_pos = self.get_pos()
-        print("Moving to home from position {}".format(current_pos))
-        sys.stdout.flush()
+        return self.rotation(home=True)
 
-        # Ensure we're not already moving
-        if self.is_turning:
-            print("Stopping current rotation before homing...")
-            self.stop_rotation()
-            time.sleep(0.1)
-
-        # Intelligent direction selection for shortest path to home
-        direction = self._select_optimal_home_direction(current_pos)
-        self.set_rotation(direction)
-
-        # Start rotation towards home
-        if not self.start_rotation():
-            print("ERROR: Could not start rotation for homing")
-            return False
-
-        return self._execute_homing_sequence()
-
-    def _select_optimal_home_direction(self, current_pos):
+    def _set_optimal_goto_direction(self, current_pos, target_pos):
         """
-        Select optimal direction for fastest path to home position
+        Select optimal direction for fastest path to target position
         """
-        home_pos = self.HOME_POS
-
         # Calculate angular distances for both directions
-        cw_distance = (home_pos - current_pos) % 360
-        ccw_distance = (current_pos - home_pos) % 360
+        cw_distance = (target_pos - current_pos) % 360
+        ccw_distance = (current_pos - target_pos) % 360
 
         # Choose shortest path
         if cw_distance <= ccw_distance:
-            direction = self.CW
-            direction_str = "CW"
+            self._set_rotation(self.CW)
             distance = cw_distance
         else:
-            direction = self.CCW
-            direction_str = "CCW"
+            self._set_rotation(self.CCW)
             distance = ccw_distance
 
-        print("Optimal path: {} degrees {} to home".format(distance, direction_str))
-        return direction
-
-    def _execute_homing_sequence(self):
-        """
-        Execute the homing sequence with enhanced polling and validation
-        """
-        # Initialize encoder tracking for homing
-        self.encoder_direction = None
-        self.encoder_errors = 0
-        direction_validated = False
-        expected_direction = self.direction_str()
-
-        # Set fast polling mode for homing optimization
-        original_poll_rate = self.POLL
-        self.POLL = self.home_poll_fast
-        self.home_poll_normal = (
-            original_poll_rate
-            if self.home_poll_normal is None
-            else self.home_poll_normal
+        print(
+            "Optimal path: {} degrees {} to target".format(
+                distance, self.direction_str()
+            )
         )
+        return distance
 
-        # Initialize home switch signal tracking
-        home_search_start = time.time()
-        last_debug_time = time.time()
-        debug_interval = 2.0  # Print debug info every 2 seconds
-
-        try:
-            # Poll until home switch triggers with enhanced detection
-            while not self.is_home_with_validation():
-                self.is_home = False
-
-                # Update encoder tracking during homing
-                if self.update_encoder_tracking():
-                    if not direction_validated and self.encoder_direction is not None:
-                        if self.encoder_direction == expected_direction:
-                            print(
-                                "OK: Home rotation direction validated: {}".format(
-                                    self.encoder_direction
-                                )
-                            )
-                            direction_validated = True
-                        else:
-                            print(
-                                "WARNING: Home direction mismatch: "
-                                "Expected {}, Encoder {}".format(
-                                    expected_direction, self.encoder_direction
-                                )
-                            )
-
-                # Check for timeout with enhanced error reporting
-                elapsed = time.time() - home_search_start
-                if elapsed > self.MOVE_TIMEOUT:
-                    raise Exception(
-                        "Timed out waiting for home switch after %.1f seconds" % elapsed
-                    )
-
-                # Enhanced debug output with timing and speed information
-                if time.time() - last_debug_time >= debug_interval:
-                    home_state = self.dome.digital_in(self.HOME)
-                    encoder_state = self.read_encoder_state()
-                    print(
-                        "Homing: elapsed=%.1fs, home_pin=%d, "
-                        "encoder=%s, direction=%s, speed=%.2f deg/s"
-                        % (
-                            elapsed,
-                            home_state,
-                            encoder_state,
-                            self.encoder_direction or "unknown",
-                            self.encoder_speed,
-                        )
-                    )
-                    last_debug_time = time.time()
-
-                time.sleep(self.POLL)
-                print(".")
-                sys.stdout.flush()
-        finally:
-            # Always restore normal polling rate
-            self.POLL = self.home_poll_normal
-
-        # Stop rotation when home found
-        self.stop_rotation()
-        self.is_home = True
-        self.set_pos(self.HOME_POS)
-        print("done.")
-        return True
-
-    def rotation(self, amount=0):
+    def rotation(self, azimuth=0, home=False):
         """
-        Rotate dome by specified amount using non-blocking control
-        Fixed: Now supports bidirectional rotation (CW and CCW)
+        Rotate dome to specified azimuth using non-blocking control
 
         Args:
-            amount: Degrees to rotate (positive=CW, negative=CCW)
+            azimuth: Target azimuth in degrees
         """
         start_pos = self.get_pos()
+        if home:
+            azimuth = self.HOME_POS
 
-        # Determine direction based on amount sign
-        if amount == 0:
-            print("No rotation requested (amount=0)")
+        if azimuth == start_pos:
+            print("Dome already at requested azimuth: {:.1f}".format(azimuth))
             return True
 
         # Set direction based on amount sign and current direction preference
-        if amount > 0:
-            # Positive amount: rotate in current direction
-            target_pos = start_pos + (amount * self.TICKS_TO_DEG)
-            direction_forward = True
-        else:
-            # Negative amount: rotate in opposite direction
-            target_pos = start_pos + (amount * self.TICKS_TO_DEG)  # amount is negative
-            direction_forward = False
+        distance = self._set_optimal_goto_direction(start_pos, azimuth)
 
         print(
             "Rotating {} degrees from {:.1f} to {:.1f}".format(
-                amount, start_pos, target_pos
+                distance, start_pos, azimuth
             )
         )
 
         # Ensure we're not already moving
         if self.is_turning:
             print("Stopping current rotation before new movement...")
-            self.stop_rotation()
+            self.rotation_stop()
             time.sleep(0.1)
 
         # Start rotation
-        if not self.start_rotation():
+        if not self._rotation_start():
             print("ERROR: Could not start rotation")
             return False
 
-        # Initialize encoder tracking for this movement
-        self.encoder_direction = None
-        self.encoder_errors = 0
-        expected_direction = "CW" if direction_forward else "CCW"
-        direction_validated = False
-
-        # Monitor position until target reached
-        # Enhanced: Now includes 2-bit Gray Code encoder tracking
-        while True:
-            current_pos = self.get_pos()
-
-            # Update encoder tracking and validate direction
-            if self.update_encoder_tracking():
-                if not direction_validated and self.encoder_direction is not None:
-                    # Validate direction on first encoder movement
-                    if self.encoder_direction == expected_direction:
-                        print(
-                            "OK: Encoder direction validated: {}".format(
-                                self.encoder_direction
-                            )
-                        )
-                        direction_validated = True
-                    else:
-                        print(
-                            "WARNING: Direction mismatch: "
-                            "Expected {}, Encoder {}".format(
-                                expected_direction, self.encoder_direction
-                            )
-                        )
-
-            # Check if we've reached the target (with small tolerance)
-            position_error = abs(current_pos - target_pos)
-            if position_error < (0.5 * self.TICKS_TO_DEG):  # Within 0.5 degrees
-                print(
-                    "Target position reached: {:.1f} (error: {:.2f} deg)".format(
-                        current_pos, position_error / self.TICKS_TO_DEG
-                    )
-                )
-                break
-
-            # Safety check: detect if we've overshot significantly
-            if direction_forward and (current_pos > target_pos + 2 * self.TICKS_TO_DEG):
-                print("WARNING: Overshot target in forward direction")
-                break
-            elif not direction_forward and (
-                current_pos < target_pos - 2 * self.TICKS_TO_DEG
-            ):
-                print("WARNING: Overshot target in reverse direction")
-                break
-
-            # TODO: Add timeout watchdog
-            time.sleep(self.POLL)
+        if home:
+            print("Homing to position {:.1f}...".format(azimuth))
+            sys.stdout.flush()
+            while True:
+                if self.isHome():
+                    print("Home switch activated.")
+                    self.set_pos(self.HOME_POS)
+                    break
+                time.sleep(self.POLL)
+        else:
+            print("Rotating to azimuth {:.1f}...".format(azimuth))
+            sys.stdout.flush()
+            encoder_ticks = 0
+            target_ticks = round(distance * self.DEG_TO_TICKS)
+            while encoder_ticks < target_ticks:
+                encoder_ticks, _ = self.counter_read()
+                # TODO: Add timeout watchdog
+                time.sleep(self.POLL)
 
         # Stop rotation when target reached
-        self.stop_rotation()
+        self.rotation_stop()
 
         final_pos = self.get_pos()
         print("Rotation completed. Final position: {:.1f}".format(final_pos))
         return True
 
     def get_pos(self):
-        curr_ticks = self.dome.counter_read(self.A)
-        self.position = curr_ticks  # * self.TICKS_TO_DEG
         return self.position
 
-    # Reset the tick counters to 0 when you reach HOME
+    def update_pos(self):
+        encoder_ticks, _ = self.counter_read()
+        change_in_pos = (encoder_ticks / self.DEG_TO_TICKS) % 360.0
+        if self.dir == self.CW:
+            new_pos = (self.get_pos() + change_in_pos) % 360.0
+        else:
+            new_pos = (self.get_pos() - change_in_pos) % 360.0
+        self.set_pos(new_pos)
+
+    # Reset the tick counters to 0 when you reach target position
     def set_pos(self, in_pos):
-        if in_pos == self.HOME_POS:
-            self.counter_reset()
+        self.encoder_reset()
         self.position = in_pos
 
-    def counter_reset(self):
-        self.dome.counter_reset(self.A)
-        self.dome.counter_reset(self.B)
+    def encoder_reset(self):
+        self.dome.counter_reset(1)
 
         # Also reset Gray Code encoder tracking
         self.encoder_state_history = []
@@ -488,12 +333,10 @@ class Dome:
         print("Encoder counters and Gray Code tracking reset")
 
     def counter_read(self):
-        encoder_ticks = {
-            "A": self.dome.counter_read(self.A),
-            "B": self.dome.counter_read(self.B),
-        }
-        print(encoder_ticks)
-        return encoder_ticks
+        encoder_ticks = self.dome.counter_read(1)
+        home_count = self.dome.counter_read(2)
+        print(encoder_ticks, home_count)
+        return encoder_ticks, home_count
 
     # 2-Bit Gray Code Encoder Implementation
     def read_encoder_state(self):
@@ -603,7 +446,7 @@ class Dome:
             if time_delta > 0:
                 # Each encoder transition represents 1/4 of encoder resolution
                 # Speed calculation: (degrees per tick) / (time per transition)
-                speed_deg_per_sec = (self.TICKS_TO_DEG / 4.0) / time_delta
+                speed_deg_per_sec = (self.DEG_TO_TICKS / 4.0) / time_delta
                 self.encoder_speed = speed_deg_per_sec
 
                 # Track maximum observed rotation speed for optimization
@@ -746,7 +589,7 @@ class Dome:
             "home_pin": self.HOME,
         }
 
-    def calibrate_encoder_ticks_to_degrees(
+    def calibrate_encoder_degrees_to_ticks(
         self, calibration_degrees=360.0, timeout=180.0
     ):
         """
@@ -805,7 +648,7 @@ class Dome:
                     # Calculate current degrees based on tick count
                     if tick_count > 0:
                         current_degrees = (tick_count * calibration_degrees) / (
-                            calibration_degrees / self.TICKS_TO_DEG
+                            calibration_degrees / self.DEG_TO_TICKS
                         )
                         print(
                             "Calibration: %d ticks, est. %.1f degrees"
@@ -830,7 +673,7 @@ class Dome:
         measured_ticks_to_deg = (
             tick_count / calibration_degrees if calibration_degrees > 0 else 0
         )
-        current_ticks_to_deg = self.TICKS_TO_DEG
+        current_ticks_to_deg = self.DEG_TO_TICKS
         accuracy_percent = (
             (measured_ticks_to_deg / current_ticks_to_deg * 100)
             if current_ticks_to_deg > 0
@@ -1007,7 +850,7 @@ class Dome:
         """
         return {
             "current_config": {
-                "ticks_to_degrees": self.TICKS_TO_DEG,
+                "degrees_to_ticks": self.DEG_TO_TICKS,
                 "encoder_pins": {"A": self.A, "B": self.B},
             },
             "performance": {
@@ -1028,83 +871,10 @@ class Dome:
         """Check if dome is at home position by reading home switch"""
         try:
             # Read the actual home switch state
-            home_switch_active = self.dome.digital_in(self.HOME)
-            if home_switch_active:
-                self.is_home = True
-            else:
-                self.is_home = False
+            self.is_home = self.dome.digital_in(self.HOME)
             return self.is_home
         except Exception as e:
             raise Exception("Hardware error reading home switch: {}".format(e))
-
-    def is_home_with_validation(self):
-        """
-        Enhanced home switch detection with signal validation and debouncing.
-
-        This method provides optimized home switch detection for reliable operation
-        at maximum rotation speeds. It includes:
-        - Signal duration measurement and debouncing
-        - History tracking for noise rejection
-        - Timing analysis for debugging
-
-        Returns:
-            bool: True if home switch is reliably detected
-        """
-        try:
-            current_time = time.time()
-            home_switch_active = self.dome.digital_in(self.HOME)
-
-            # Track home switch history for debouncing
-            self.home_switch_history.append(
-                {
-                    "time": current_time,
-                    "state": home_switch_active,
-                    "poll_rate": self.POLL,
-                }
-            )
-
-            # Keep only recent history (last 2 seconds)
-            cutoff_time = current_time - 2.0
-            self.home_switch_history = [
-                h for h in self.home_switch_history if h["time"] >= cutoff_time
-            ]
-
-            if home_switch_active:
-                # Home switch is currently active
-                # Find start of current signal
-                signal_start = None
-                for i in range(len(self.home_switch_history) - 1, -1, -1):
-                    if self.home_switch_history[i]["state"]:
-                        signal_start = self.home_switch_history[i]["time"]
-                    else:
-                        break
-
-                if signal_start is not None:
-                    self.home_signal_duration = current_time - signal_start
-
-                    # Check if signal duration meets debounce requirement
-                    if self.home_signal_duration >= self.home_switch_debounce:
-                        print(
-                            "Home switch validated: signal duration %.3fs (min %.3fs)"
-                            % (self.home_signal_duration, self.home_switch_debounce)
-                        )
-                        self.is_home = True
-                        return True
-                    else:
-                        # Signal too short, keep polling
-                        return False
-                else:
-                    # Just started, reset duration
-                    self.home_signal_duration = 0.0
-                    return False
-            else:
-                # Home switch not active
-                self.home_signal_duration = 0.0
-                self.is_home = False
-                return False
-
-        except Exception as e:
-            raise Exception("Hardware error in enhanced home detection: {}".format(e))
 
     def isClosed(self):
         """Check if shutter is closed"""
@@ -1140,8 +910,8 @@ class Dome:
             print("ERROR: Shutter operation already in progress")
             return False
         print("Sending OPEN signal to shutter...")
-        self.dome.digital_on(self.SHUTTER_MOVE)
         self.dome.digital_off(self.SHUTTER_DIR)  # Direction for opening
+        self.dome.digital_on(self.SHUTTER_MOVE)
         self.is_opening = True
         self.is_closing = False
         return True
@@ -1161,18 +931,11 @@ class Dome:
             return False
 
         print("Sending CLOSE signal to shutter...")
-        self.dome.digital_on(self.SHUTTER_MOVE)
         self.dome.digital_on(self.SHUTTER_DIR)  # Direction for closing
+        self.dome.digital_on(self.SHUTTER_MOVE)
         self.is_closing = True
         self.is_opening = False
         return True
-
-    def rotation_stop(self):
-        """
-        Stop dome rotation (emergency stop) - Legacy method
-        Uses new stop_rotation() for consistent behavior
-        """
-        return self.stop_rotation()
 
     def shutter_stop(self):
         """

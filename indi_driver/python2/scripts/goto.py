@@ -34,7 +34,7 @@ def main():
         except Exception:
             # If rotation() fails, try using cw() as fallback
             try:
-                dome.cw(amount=azimuth)
+                dome.cw()
                 # Save state after successful movement
                 save_state(dome, "goto")
                 sys.exit(0)

@@ -18,6 +18,9 @@ def main():
     try:
         # Constructing Dome will attempt to initialize the hardware
         dome = Dome()
+        if dome.isHome():
+            print("Dome home switch is active.")
+            dome.set_pos(dome.HOME_POS)
         # Save the connection state after successful initialization
         save_state(dome, "connect")
         sys.exit(0)

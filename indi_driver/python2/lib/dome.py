@@ -252,6 +252,7 @@ class Dome:
         start_pos = self.get_pos()
         if home:
             azimuth = self.HOME_POS
+            self.homes_reset()
 
         if azimuth == start_pos:
             print("Dome already at requested azimuth: {:.1f}".format(azimuth))
@@ -330,11 +331,14 @@ class Dome:
 
     # Reset the tick counters to 0 when you reach target position
     def set_pos(self, in_pos):
-        self.encoder_reset()
+        # self.encoder_reset()
         self.position = in_pos
 
     def encoder_reset(self):
         self.dome.counter_reset(1)
+
+    def homes_reset(self):
+        self.dome.counter_reset(2)
 
         # Also reset Gray Code encoder tracking
         self.encoder_state_history = []

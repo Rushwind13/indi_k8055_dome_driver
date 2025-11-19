@@ -63,7 +63,7 @@ if __name__ == "__main__":
     dome.cw()
     start_time = time.time()
     poll_interval = dome.POLL if hasattr(dome, "POLL") else 0.2
-    homes = 0
+    dome.homes_reset()
     CW_TEST_DURATION = 150  # seconds
     CCW_TEST_DURATION = 120  # seconds
     stop_at_home = True
@@ -73,8 +73,8 @@ if __name__ == "__main__":
     try:
         while run_time < CW_TEST_DURATION:
             position = dome.current_pos()
-            # counters = dome.counter_read()
-            counters = (dome.dome.digital_in(dome.A), dome.dome.digital_in(dome.B))
+            encoder_ticks, homes = dome.counter_read()
+            encoders = (dome.dome.digital_in(dome.A), dome.dome.digital_in(dome.B))
             home_switch = dome.dome.digital_in(dome.HOME)
             digital_mask = (
                 dome.dome.read_all_digital()
@@ -87,7 +87,8 @@ if __name__ == "__main__":
                     "run_time": run_time,
                     "dome": dome,
                     "position": position,
-                    "counters": counters,
+                    "encoder_ticks": encoder_ticks,
+                    "encoders": encoders,
                     "home_switch": home_switch,
                     "digital_mask": digital_mask,
                     "homes": homes,
@@ -115,12 +116,12 @@ if __name__ == "__main__":
     dome.ccw()
     start_time = time.time()
     run_time = 0
-    homes = 0
+    dome.homes_reset()
     try:
         while run_time < CCW_TEST_DURATION:
             position = dome.current_pos()
-            # counters = dome.counter_read()
-            counters = (dome.dome.digital_in(dome.A), dome.dome.digital_in(dome.B))
+            encoder_ticks, homes = dome.counter_read()
+            encoders = (dome.dome.digital_in(dome.A), dome.dome.digital_in(dome.B))
             home_switch = dome.dome.digital_in(dome.HOME)
             digital_mask = (
                 dome.dome.read_all_digital()
@@ -133,7 +134,8 @@ if __name__ == "__main__":
                     "run_time": run_time,
                     "dome": dome,
                     "position": position,
-                    "counters": counters,
+                    "encoder_ticks": encoder_ticks,
+                    "encoders": encoders,
                     "home_switch": home_switch,
                     "digital_mask": digital_mask,
                     "homes": homes,

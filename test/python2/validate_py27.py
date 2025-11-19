@@ -114,7 +114,7 @@ class ValidationTests(object):
                 },
                 "calibration": {
                     "home_position": 0.0,
-                    "ticks_to_degrees": 1.0,
+                    "degrees_to_ticks": 1.0,
                     "poll_interval": 0.1,
                 },
                 "hardware": {"mock_mode": True, "device_port": 0},
@@ -172,7 +172,7 @@ class ValidationTests(object):
                 },
                 "calibration": {
                     "home_position": 0.0,
-                    "ticks_to_degrees": 1.0,
+                    "degrees_to_ticks": 1.0,
                     "poll_interval": 0.1,
                 },
                 "hardware": {"mock_mode": True, "device_port": 0},
@@ -376,7 +376,7 @@ class ValidationTests(object):
                 },
                 "calibration": {
                     "home_position": 225,
-                    "ticks_to_degrees": 4.0,
+                    "degrees_to_ticks": 1.146,
                     "poll_interval": 0.5,
                     "home_poll_fast": 0.05,
                     "home_switch_debounce": 0.1,
@@ -451,7 +451,7 @@ class ValidationTests(object):
                 },
                 "calibration": {
                     "home_position": 225,
-                    "ticks_to_degrees": 4.0,
+                    "degrees_to_ticks": 1.146,
                     "poll_interval": 0.5,
                     "encoder_error_threshold": 50,
                     "encoder_calibration_timeout": 180.0,
@@ -463,7 +463,7 @@ class ValidationTests(object):
             dome = Dome(config)
 
             # Test configuration loading
-            if dome.TICKS_TO_DEG <= 0:
+            if dome.DEG_TO_TICKS <= 0:
                 raise Exception("Ticks to degrees should be positive")
             if dome.encoder_error_threshold <= 0:
                 raise Exception("Error threshold should be positive")

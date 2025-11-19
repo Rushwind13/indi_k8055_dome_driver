@@ -8,23 +8,31 @@ import time
 from dome import Dome
 
 
+def Telemetry(context):
+    Telemetry_short(context)
+    # Telemetry_long(context)  # Uncomment for more detailed telemetry
+
+
 def Telemetry_short(context):
     print(
-        "  {:06.3f}: Digital input bitmask: {}".format(
+        "  {:06.3f}: Digital inputs 54321: {} tics: {} {} homes: {}".format(
             context["run_time"],
             bin(context["digital_mask"])[2:].zfill(5)
             if context["digital_mask"] is not None
             else "N/A",
+            context["encoder_ticks"],
+            context["home_ticks"],
+            context["homes"],
         )
     )
 
 
-def Telemetry(context):
+def Telemetry_long(context):
     enc_state = context["dome"].read_encoder_state()
     print("Telemetry:")
     print("  Run time: {:06.3f} sec".format(context["run_time"]))
     print("  Position: {}".format(context["position"]))
-    print("  Encoders: {}".format(context["counters"]))
+    print("  Encoders: {}".format(context["encoders"]))
     print("  Gray code: {}".format(enc_state))
     print(
         "  Rotation Direction: {}".format(
@@ -70,10 +78,12 @@ if __name__ == "__main__":
     cwtime = 0
     ccwtime = 0
     run_time = 0
+    telemetry_delay = 0
+    homes = 0
     try:
         while run_time < CW_TEST_DURATION:
             position = dome.current_pos()
-            encoder_ticks, homes = dome.counter_read()
+            encoder_ticks, home_ticks = dome.counter_read()
             encoders = (dome.dome.digital_in(dome.A), dome.dome.digital_in(dome.B))
             home_switch = dome.dome.digital_in(dome.HOME)
             digital_mask = (
@@ -82,21 +92,26 @@ if __name__ == "__main__":
                 else None
             )
 
-            Telemetry(
-                {
-                    "run_time": run_time,
-                    "dome": dome,
-                    "position": position,
-                    "encoder_ticks": encoder_ticks,
-                    "encoders": encoders,
-                    "home_switch": home_switch,
-                    "digital_mask": digital_mask,
-                    "homes": homes,
-                }
-            )
+            if telemetry_delay > 100:
+                Telemetry(
+                    {
+                        "run_time": run_time,
+                        "dome": dome,
+                        "position": position,
+                        "encoder_ticks": encoder_ticks,
+                        "home_ticks": home_ticks,
+                        "encoders": encoders,
+                        "home_switch": home_switch,
+                        "digital_mask": digital_mask,
+                        "homes": homes,
+                    }
+                )
+                telemetry_delay = 0
+            telemetry_delay += 1
+
             if home_switch:
                 print(
-                    "Home switch activated {} times during CCW rotation.".format(homes)
+                    "Home switch activated {} times during CW rotation.".format(homes)
                 )
                 homes += 1
                 dome.is_home = True
@@ -129,18 +144,22 @@ if __name__ == "__main__":
                 else None
             )
 
-            Telemetry(
-                {
-                    "run_time": run_time,
-                    "dome": dome,
-                    "position": position,
-                    "encoder_ticks": encoder_ticks,
-                    "encoders": encoders,
-                    "home_switch": home_switch,
-                    "digital_mask": digital_mask,
-                    "homes": homes,
-                }
-            )
+            if telemetry_delay > 100:
+                Telemetry(
+                    {
+                        "run_time": run_time,
+                        "dome": dome,
+                        "position": position,
+                        "encoder_ticks": encoder_ticks,
+                        "home_ticks": home_ticks,
+                        "encoders": encoders,
+                        "home_switch": home_switch,
+                        "digital_mask": digital_mask,
+                        "homes": homes,
+                    }
+                )
+                telemetry_delay = 0
+            telemetry_delay += 1
             if home_switch:
                 print(
                     "Home switch activated {} times during CCW rotation.".format(homes)

@@ -331,7 +331,11 @@ class Dome:
 
     # Reset the tick counters to 0 when you reach target position
     def set_pos(self, in_pos):
-        # self.encoder_reset()
+        encoder_ticks, _ = self.counter_read()
+        print(
+            "Encoder ticks: {}, Updated position: {:.1f}".format(encoder_ticks, in_pos)
+        )
+        self.encoder_reset()
         self.position = in_pos
 
     def encoder_reset(self):
@@ -398,7 +402,7 @@ class Dome:
             return "Initializing"
 
         if current_state == self.last_encoder_state:
-            return "No change"  # No change
+            return self.direction_str()  # No change
 
         # Define valid state transitions for each direction
         cw_transitions = {

@@ -56,9 +56,8 @@ class DomePersistence(object):
         try:
             # Get encoder values safely
             try:
-                encoder_values = dome.counter_read()
-                encoder_a = encoder_values.get("A", 0)
-                encoder_b = encoder_values.get("B", 0)
+                encoder_a = dome.dome.digital_in(dome.A)
+                encoder_b = dome.dome.digital_in(dome.B)
             except (AttributeError, TypeError):
                 encoder_a = 0
                 encoder_b = 0
@@ -88,7 +87,7 @@ class DomePersistence(object):
                 # Position and movement
                 "position": current_position,
                 "home_position": getattr(dome, "HOME_POS", 0.0),
-                "degrees_to_ticks": getattr(dome, "DEG_TO_TICKS", 1.0),
+                "ticks_to_degrees": getattr(dome, "TICKS_TO_DEG", 1.0),
                 # Encoder states
                 "encoder_a": encoder_a,
                 "encoder_b": encoder_b,
@@ -186,7 +185,7 @@ class DomePersistence(object):
             # Restore position and calibration
             dome.position = state.get("position", 0.0)
             dome.HOME_POS = state.get("home_position", 0.0)
-            dome.DEG_TO_TICKS = state.get("degrees_to_ticks", 1.0)
+            dome.TICKS_TO_DEG = state.get("ticks_to_degrees", 1.0)
 
             # Restore movement states
             dome.is_home = state.get("is_home", False)
@@ -238,8 +237,8 @@ class DomePersistence(object):
         summary.append("Home: {}".format(state.get("is_home", False)))
         summary.append("Turning: {}".format(state.get("is_turning", False)))
         summary.append("Shutter Open: {}".format(state.get("shutter_open", False)))
-        summary.append("Encoder A: {} ticks".format(state.get("encoder_a", 0)))
-        summary.append("Encoder B: {} ticks".format(state.get("encoder_b", 0)))
+        summary.append("Encoder A: {}".format(state.get("encoder_a", 0)))
+        summary.append("Encoder B: {}".format(state.get("encoder_b", 0)))
 
         return "\n".join(summary)
 
@@ -345,7 +344,7 @@ if __name__ == "__main__":
                     },
                     "calibration": {
                         "home_position": 0.0,
-                        "degrees_to_ticks": 1.0,
+                        "ticks_to_degrees": 1.0,
                         "poll_interval": 0.1,
                     },
                     "hardware": {"mock_mode": True, "device_port": 0},

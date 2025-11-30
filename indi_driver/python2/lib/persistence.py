@@ -56,9 +56,8 @@ class DomePersistence(object):
         try:
             # Get encoder values safely
             try:
-                encoder_values = dome.counter_read()
-                encoder_a = encoder_values.get("A", 0)
-                encoder_b = encoder_values.get("B", 0)
+                encoder_a = dome.dome.digital_in(dome.A)
+                encoder_b = dome.dome.digital_in(dome.B)
             except (AttributeError, TypeError):
                 encoder_a = 0
                 encoder_b = 0
@@ -238,8 +237,8 @@ class DomePersistence(object):
         summary.append("Home: {}".format(state.get("is_home", False)))
         summary.append("Turning: {}".format(state.get("is_turning", False)))
         summary.append("Shutter Open: {}".format(state.get("shutter_open", False)))
-        summary.append("Encoder A: {} ticks".format(state.get("encoder_a", 0)))
-        summary.append("Encoder B: {} ticks".format(state.get("encoder_b", 0)))
+        summary.append("Encoder A: {}".format(state.get("encoder_a", 0)))
+        summary.append("Encoder B: {}".format(state.get("encoder_b", 0)))
 
         return "\n".join(summary)
 

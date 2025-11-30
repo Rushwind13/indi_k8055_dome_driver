@@ -35,8 +35,8 @@ import time
 
 # Add Python 2.7 and Python 3 lib paths
 script_dir = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, os.path.join(script_dir, "indi_driver", "lib"))
-sys.path.insert(0, os.path.join(script_dir, "indi_driver", "python2", "lib"))
+sys.path.insert(0, os.path.join(script_dir, "..", "indi_driver", "lib"))
+sys.path.insert(0, os.path.join(script_dir, "..", "indi_driver", "python2", "lib"))
 
 # Python 2/3 compatibility
 try:

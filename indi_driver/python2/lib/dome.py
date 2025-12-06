@@ -186,7 +186,6 @@ class Dome:
         print("Starting rotation in direction: {}".format(self.direction_str()))
 
         # Enable motor (direction should already be set via set_rotation)
-        # NOTE: Encoder reset removed - hardware counter is absolute value (always counts up)
         # Resetting here causes position errors because we lose accumulated ticks
         # Encoder should only reset when crossing home position
         # self.encoder_reset()
@@ -288,7 +287,7 @@ class Dome:
                 if self.isHome():
                     print("Home switch activated.")
                     # Reset encoder when crossing home position
-                    self.set_pos(self.HOME_POS, reset_encoder=True)
+                    self.set_pos(self.HOME_POS)
                     break
                 time.sleep(self.POLL)
         else:
@@ -314,13 +313,13 @@ class Dome:
     def update_pos(self):
         if self.isHome():
             # Reset encoder when at home position
-            self.set_pos(self.HOME_POS, reset_encoder=True)
+            self.set_pos(self.HOME_POS)
             return
         encoder_ticks, _ = self.counter_read()
         # Hardware counter is absolute (always counts up regardless of direction)
         # Direction is applied by motor wiring, not by software calculation
         change_in_pos = (encoder_ticks / self.DEG_TO_TICKS) % 360.0
-        # Always ADD ticks - CW adds forward, CCW adds backward (motor direction handles sign)
+        # Always ADD ticks - CW adds forward, CCW adds backward
         if self.dir == self.CW:
             new_pos = (self.get_pos() + change_in_pos) % 360.0
         else:
@@ -341,7 +340,7 @@ class Dome:
         return new_pos
 
     # Reset the tick counters to 0 when you reach target position
-    def set_pos(self, in_pos, reset_encoder=False):
+    def set_pos(self, in_pos, reset_encoder=True):
         encoder_ticks, _ = self.counter_read()
         print(
             "Encoder ticks: {}, Updated position: {:.1f}".format(encoder_ticks, in_pos)

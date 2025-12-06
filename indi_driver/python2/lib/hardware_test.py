@@ -191,7 +191,7 @@ if __name__ == "__main__":
     # Configuration
     FULL_ROTATION_TICKS = 314  # Total ticks for full 360-degree rotation
     DEGREES_PER_STEP = 45  # Rotate 45 degrees each step
-    TICKS_PER_STEP = [39, 40] * 4  # Ticks for each 45-degree rotation
+    TICKS_PER_STEP = [39, 39, 39, 40] * 2  # Ticks for each 45-degree rotation
     NUM_STEPS = len(TICKS_PER_STEP)  # Number of rotation steps (8 x 45 = 360 deg)
 
     MAX_SAFETY_TIMEOUT = 300  # Maximum 5 minutes per test (safety)
@@ -201,7 +201,7 @@ if __name__ == "__main__":
     print("Configuration:")
     print("  Full rotation: {} ticks".format(FULL_ROTATION_TICKS))
     print("  Steps: {} x {} degrees".format(NUM_STEPS, DEGREES_PER_STEP))
-    print("  Ticks per step: {:.1f}".format(TICKS_PER_STEP))
+    print("  Ticks per step: {}".format(TICKS_PER_STEP))
     print("")
 
     # Test CW rotation - 8 steps of 45 degrees each
@@ -223,7 +223,7 @@ if __name__ == "__main__":
         )
         total_cwtime += cwtime
         total_cwhomes += cwhomes
-        total_cwticks += cwticks
+        total_cwticks = cwticks
         print(
             "Step {} complete. Position: {:.1f} degrees".format(
                 step + 1, dome.current_pos()

@@ -215,7 +215,7 @@ if __name__ == "__main__":
             dome=dome,
             direction_name="CW",
             rotation_func=dome.cw,
-            rotation_amount=total_cwticks + TICKS_PER_STEP[step],
+            rotation_amount=TICKS_PER_STEP[step],
             max_duration=MAX_SAFETY_TIMEOUT,
             stop_at_home=stop_at_home,
             min_homes=min_homes_before_stop,
@@ -223,7 +223,7 @@ if __name__ == "__main__":
         )
         total_cwtime += cwtime
         total_cwhomes += cwhomes
-        total_cwticks = cwticks
+        total_cwticks += cwticks
         print(
             "Step {} complete. Position: {:.1f} degrees".format(
                 step + 1, dome.current_pos()

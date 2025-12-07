@@ -261,7 +261,7 @@ def calibrate_home_width(dome, max_duration=60):
             )
             # Only output telemetry every 5th tick
             if encoder_ticks % 5 == 0:
-                if len(telemetry_log) == 1 or encoder_ticks != telemetry_log[-2][0]:
+                if len(telemetry_log) < 2 or encoder_ticks != telemetry_log[-2][0]:
                     Telemetry_short(
                         {
                             "run_time": time.time() - t0,

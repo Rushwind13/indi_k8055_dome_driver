@@ -248,9 +248,18 @@ def calibrate_home_width(dome, max_duration=60):
         t0 = time.time()
         telemetry_log = []
         direction_func()
+        prev_home_switch = None
+        last_print_tick = None
         while True:
             encoder_ticks, _ = dome.counter_read()
             home_switch = dome.dome.digital_in(dome.HOME)
+            enc_a = dome.dome.digital_in(dome.A)
+            enc_b = dome.dome.digital_in(dome.B)
+            digital_mask = (
+                dome.dome.read_all_digital()
+                if hasattr(dome.dome, "read_all_digital")
+                else None
+            )
             Telemetry(
                 {
                     "run_time": time.time() - t0,
@@ -258,20 +267,37 @@ def calibrate_home_width(dome, max_duration=60):
                     "position": dome.get_pos(),
                     "encoder_ticks": encoder_ticks,
                     "home_ticks": None,
-                    "encoders": (
-                        dome.dome.digital_in(dome.A),
-                        dome.dome.digital_in(dome.B),
-                    ),
+                    "encoders": (enc_a, enc_b),
                     "home_switch": home_switch,
-                    "digital_mask": dome.dome.read_all_digital()
-                    if hasattr(dome.dome, "read_all_digital")
-                    else None,
+                    "digital_mask": digital_mask,
                     "homes": None,
                     "home_tics": None,
-                    "prev_home_switch": None,
+                    "prev_home_switch": prev_home_switch,
                 }
             )
-            telemetry_log.append((encoder_ticks, home_switch))
+            telemetry_log.append(
+                (encoder_ticks, home_switch, enc_a, enc_b, digital_mask)
+            )
+            # Print telemetry only every 10 ticks for large sweeps
+            if last_print_tick is None or abs(encoder_ticks - last_print_tick) >= 10:
+                Telemetry_short(
+                    {
+                        "run_time": time.time() - t0,
+                        "dome": dome,
+                        "position": dome.get_pos(),
+                        "encoder_ticks": encoder_ticks,
+                        "home_ticks": None,
+                        "encoders": (enc_a, enc_b),
+                        "home_switch": home_switch,
+                        "digital_mask": digital_mask,
+                        "homes": None,
+                        "home_tics": None,
+                        "prev_home_switch": prev_home_switch,
+                    }
+                )
+                last_print_tick = encoder_ticks
+            prev_home_switch = home_switch
+            # Only break when we have swept past the target, not when home is hit
             if (target_ticks > 0 and encoder_ticks >= target_ticks) or (
                 target_ticks < 0 and encoder_ticks <= target_ticks
             ):

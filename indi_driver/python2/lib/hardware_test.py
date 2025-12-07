@@ -173,6 +173,7 @@ def test_rotation(
 
 def full_rotation_test(dome, max_duration=180):
     print("\n=== FULL ROTATION TEST ===")
+    # Ensure at home
     if not dome.isHome():
         print("Moving to home position...")
         dome.home()
@@ -181,17 +182,43 @@ def full_rotation_test(dome, max_duration=180):
     print("Starting full rotation CW...")
     dome.cw()
     start_time = time.time()
-    home_seen = False
+    left_home = False
+    prev_home_switch = dome.isHome()
     while True:
         encoder_ticks, home_ticks = dome.counter_read()
-        if dome.isHome() and home_seen:
+        home_switch = dome.dome.digital_in(dome.HOME)
+        # Telemetry per tick
+        Telemetry(
+            {
+                "run_time": time.time() - start_time,
+                "dome": dome,
+                "position": dome.get_pos(),
+                "encoder_ticks": encoder_ticks,
+                "home_ticks": home_ticks,
+                "encoders": (
+                    dome.dome.digital_in(dome.A),
+                    dome.dome.digital_in(dome.B),
+                ),
+                "home_switch": home_switch,
+                "digital_mask": dome.dome.read_all_digital()
+                if hasattr(dome.dome, "read_all_digital")
+                else None,
+                "homes": None,
+                "home_tics": None,
+                "prev_home_switch": prev_home_switch,
+            }
+        )
+        # Wait until we've left home at least once
+        if not left_home and not home_switch and prev_home_switch:
+            left_home = True
+        # Only finish after we've left home and then returned
+        if left_home and home_switch and not prev_home_switch:
             print("Returned to home position.")
             break
-        if dome.isHome():
-            home_seen = True
         if time.time() - start_time > max_duration:
             print("Timeout reached.")
             break
+        prev_home_switch = home_switch
         time.sleep(0.05)
     dome.rotation_stop()
     elapsed = time.time() - start_time

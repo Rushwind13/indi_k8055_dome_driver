@@ -183,6 +183,7 @@ def full_rotation_test(dome, max_duration=180):
     dome.cw()
     start_time = time.time()
     left_home = False
+    left_home_tick = None
     prev_home_switch = dome.isHome()
     last_telemetry_tick = 0
     while True:
@@ -214,10 +215,15 @@ def full_rotation_test(dome, max_duration=180):
         # Wait until we've left home at least once
         if not left_home and not home_switch and prev_home_switch:
             left_home = True
-        # Only finish after we've left home and then returned
-        if left_home and home_switch and not prev_home_switch:
-            print("Returned to home position.")
-            break
+            left_home_tick = encoder_ticks
+        # Only finish after we've left home,
+        # moved at least 2 encoder ticks,
+        # and then returned
+        if left_home and left_home_tick is not None:
+            if (encoder_ticks - left_home_tick) > 1:
+                if home_switch and not prev_home_switch:
+                    print("Returned to home pos after moving more than 1 encoder tic.")
+                    break
         if time.time() - start_time > max_duration:
             print("Timeout reached.")
             break

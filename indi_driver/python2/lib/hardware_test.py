@@ -204,58 +204,83 @@ def full_rotation_test(dome, max_duration=180):
 
 
 def calibrate_home_width(dome, max_duration=60):
-    print("\n=== HOME WIDTH CALIBRATION ===")
-    if dome.isHome():
-        print("Moving off home (CCW)...")
-        dome.ccw()
-        while dome.isHome():
-            time.sleep(0.1)
-        dome.rotation_stop()
-        time.sleep(1)
-    print("Rotating CW to enter home region...")
-    dome.encoder_reset()
-    dome.cw()
-    start_time = time.time()
-    in_home = False
-    home_start_tick = None
-    home_end_tick = None
-    while True:
-        encoder_ticks, _ = dome.counter_read()
+    print("\n=== HOME WIDTH CALIBRATION (bidirectional, 3x) ===")
+
+    # Helper to move across home region in a direction, return (start_tick, end_tick)
+    def cross_home(direction_func, leave_func, label):
+        # Move off home if needed
         if dome.isHome():
-            if not in_home:
-                home_start_tick = encoder_ticks
-                in_home = True
-        else:
-            if in_home:
-                home_end_tick = encoder_ticks
-                break
-        if time.time() - start_time > max_duration:
-            print("Timeout reached.")
-            break
-        time.sleep(0.05)
-    dome.rotation_stop()
-    if home_start_tick is not None and home_end_tick is not None:
-        home_ticks = home_end_tick - home_start_tick
-        midpoint = home_start_tick + home_ticks // 2
-        print(
-            "Home region: {} ticks ({} to {}), midpoint {}".format(
-                home_ticks, home_start_tick, home_end_tick, midpoint
-            )
-        )
-        print("Returning to midpoint of home region...")
+            print("Moving off home ({} for non-home)...".format(label))
+            leave_func()
+            t0 = time.time()
+            while dome.isHome() and (time.time() - t0 < max_duration / 3.0):
+                time.sleep(0.05)
+            dome.rotation_stop()
+            time.sleep(0.2)
+        # Now move into and across home
+        print("Crossing home region ({} direction)...".format(label))
         dome.encoder_reset()
-        dome.cw()
+        direction_func()
+        in_home = False
+        home_start_tick = None
+        home_end_tick = None
+        t0 = time.time()
         while True:
             encoder_ticks, _ = dome.counter_read()
-            if encoder_ticks >= midpoint:
+            if dome.isHome():
+                if not in_home:
+                    home_start_tick = encoder_ticks
+                    in_home = True
+            else:
+                if in_home:
+                    home_end_tick = encoder_ticks
+                    break
+            if time.time() - t0 > max_duration / 3.0:
+                print("Timeout crossing home ({}).".format(label))
                 break
-            time.sleep(0.05)
+            time.sleep(0.02)
         dome.rotation_stop()
-        print("Dome positioned at home midpoint.")
-        return home_ticks, midpoint
-    else:
-        print("Failed to calibrate home width.")
-        return None, None
+        time.sleep(0.2)
+        return home_start_tick, home_end_tick
+
+    # Perform 3 bidirectional crossings
+    home_widths = []
+    for i in range(3):
+        print("\nPass {}: CW across home".format(i + 1))
+        cw_start, cw_end = cross_home(dome.cw, dome.ccw, "CW")
+        print("  Home region: {} to {} (CW)".format(cw_start, cw_end))
+        print("Pass {}: CCW across home".format(i + 1))
+        ccw_start, ccw_end = cross_home(dome.ccw, dome.cw, "CCW")
+        print("  Home region: {} to {} (CCW)".format(ccw_start, ccw_end))
+        if cw_start is not None and cw_end is not None:
+            home_widths.append(abs(cw_end - cw_start))
+        if ccw_start is not None and ccw_end is not None:
+            home_widths.append(abs(ccw_end - ccw_start))
+
+    # Average width and center
+    if home_widths:
+        avg_width = int(round(sum(home_widths) / float(len(home_widths))))
+        print("\nAverage home width (ticks): {}".format(avg_width))
+        # Center: move to midpoint of last crossing
+        last_start = ccw_start if ccw_start is not None else cw_start
+        last_end = ccw_end if ccw_end is not None else cw_end
+        if last_start is not None and last_end is not None:
+            midpoint = last_start + (last_end - last_start) // 2
+            print("Moving to midpoint of last home region: {}".format(midpoint))
+            dome.encoder_reset()
+            dome.cw() if midpoint >= 0 else dome.ccw()
+            while True:
+                encoder_ticks, _ = dome.counter_read()
+                if (midpoint >= 0 and encoder_ticks >= midpoint) or (
+                    midpoint < 0 and encoder_ticks <= midpoint
+                ):
+                    break
+                time.sleep(0.02)
+            dome.rotation_stop()
+            print("Dome positioned at home midpoint.")
+            return avg_width, midpoint
+    print("Failed to calibrate home width.")
+    return None, None
 
 
 def standard_rotation_test(dome, state_file):

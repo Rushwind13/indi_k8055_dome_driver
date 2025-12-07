@@ -171,7 +171,7 @@ def test_rotation(
     return run_time, homes, total_ticks, home_tics
 
 
-def full_rotation_test(dome, max_duration=180):
+def full_rotation_test(dome, max_duration=180, direction="CW"):
     print("\n=== FULL ROTATION TEST ===")
     # Ensure at home
     if not dome.isHome():
@@ -179,8 +179,11 @@ def full_rotation_test(dome, max_duration=180):
         dome.home()
         time.sleep(2)
     dome.encoder_reset()
-    print("Starting full rotation CW...")
-    dome.cw()
+    print("Starting full rotation {}...".format(direction))
+    if direction.upper() == "CCW":
+        dome.ccw()
+    else:
+        dome.cw()
     start_time = time.time()
     left_home = False
     left_home_tick = None
@@ -217,10 +220,10 @@ def full_rotation_test(dome, max_duration=180):
             left_home = True
             left_home_tick = encoder_ticks
         # Only finish after we've left home,
-        # moved at least 2 encoder ticks,
-        # and then returned
+        # moved at least 2 encoder ticks, and
+        # then returned
         if left_home and left_home_tick is not None:
-            if (encoder_ticks - left_home_tick) > 1:
+            if abs(encoder_ticks - left_home_tick) > 1:
                 if home_switch and not prev_home_switch:
                     print("Returned to home pos after moving more than 1 encoder tic.")
                     break
@@ -451,12 +454,18 @@ def main():
     print("  2. Full rotation encoder calibration")
     print("  3. Home width calibration")
     try:
-        choice = raw_input("Enter choice (1/2/3): ").strip()
+        raw_input
     except NameError:
-        choice = input("Enter choice (1/2/3): ").strip()
+        raw_input = input
+    choice = raw_input("Enter choice (1/2/3): ").strip()
 
     if choice == "2":
-        full_rotation_test(dome)
+        dir_choice = (
+            raw_input("Full rotation direction? (CW/CCW) [CW]: ").strip().upper()
+        )
+        if dir_choice not in ("CW", "CCW"):
+            dir_choice = "CW"
+        full_rotation_test(dome, direction=dir_choice)
         with open(state_file, "w") as f:
             json.dump({"position": dome.get_pos()}, f)
         return

@@ -249,6 +249,10 @@ def calibrate_home_width(dome, max_duration=60):
         telemetry_log = []
         direction_func()
         prev_home_switch = None
+        # Ensure target_ticks is always positive
+        target_ticks = int(target_ticks)
+        if target_ticks < 0:
+            target_ticks = -target_ticks
         while True:
             encoder_ticks, _ = dome.counter_read()
             home_switch = dome.dome.digital_in(dome.HOME)
@@ -280,30 +284,9 @@ def calibrate_home_width(dome, max_duration=60):
             telemetry_log.append(
                 (encoder_ticks, home_switch, enc_a, enc_b, digital_mask)
             )
-
-            # Print telemetry only every 5th tick
-            if encoder_ticks % 5 == 0:
-                if len(telemetry_log) == 1 or encoder_ticks != telemetry_log[-2][0]:
-                    Telemetry_short(
-                        {
-                            "run_time": time.time() - t0,
-                            "dome": dome,
-                            "position": dome.get_pos(),
-                            "encoder_ticks": encoder_ticks,
-                            "home_ticks": None,
-                            "encoders": (enc_a, enc_b),
-                            "home_switch": home_switch,
-                            "digital_mask": digital_mask,
-                            "homes": None,
-                            "home_tics": None,
-                            "prev_home_switch": prev_home_switch,
-                        }
-                    )
             prev_home_switch = home_switch
-            # Only break when we have swept past the target, not when home is hit
-            if (target_ticks > 0 and encoder_ticks >= target_ticks) or (
-                target_ticks < 0 and encoder_ticks <= target_ticks
-            ):
+            # Always break when encoder_ticks >= target_ticks
+            if encoder_ticks >= target_ticks:
                 break
             if time.time() - t0 > max_duration:
                 print("Timeout on {} sweep.".format(label))

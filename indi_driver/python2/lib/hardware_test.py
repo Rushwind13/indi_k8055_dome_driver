@@ -101,9 +101,10 @@ def test_rotation(
     dome.homes_reset()
 
     run_time = 0
-    telemetry_delay = 0
     homes = 0
     total_ticks = 0
+    home_tics = 0
+    prev_home_switch = False
 
     try:
         while True:
@@ -118,22 +119,29 @@ def test_rotation(
                 else None
             )
 
-            if telemetry_delay > 100:
-                Telemetry(
-                    {
-                        "run_time": run_time,
-                        "dome": dome,
-                        "position": position,
-                        "encoder_ticks": encoder_ticks,
-                        "home_ticks": home_ticks,
-                        "encoders": encoders,
-                        "home_switch": home_switch,
-                        "digital_mask": digital_mask,
-                        "homes": homes,
-                    }
-                )
-                telemetry_delay = 0
-            telemetry_delay += 1
+            # Use existing Telemetry function for output, now with prev_home_switch
+            Telemetry(
+                {
+                    "run_time": run_time,
+                    "dome": dome,
+                    "position": position,
+                    "encoder_ticks": encoder_ticks,
+                    "home_ticks": home_ticks,
+                    "encoders": encoders,
+                    "home_switch": home_switch,
+                    "digital_mask": digital_mask,
+                    "homes": homes,
+                    "home_tics": home_tics,
+                    "prev_home_switch": prev_home_switch,
+                }
+            )
+
+            # Count home tics and transitions
+            if home_switch:
+                home_tics += 1
+                if not prev_home_switch:
+                    homes += 1
+            prev_home_switch = home_switch
 
             # Check rotation limit
             if use_ticks and rotation_amount is not None:
@@ -150,28 +158,17 @@ def test_rotation(
                 print("Safety timeout reached ({:.1f}s).".format(max_duration))
                 break
 
-            if home_switch:
-                homes += 1
-                print(
-                    "Home switch activated {} times during {} rotation.".format(
-                        homes, direction_name
-                    )
-                )
-                dome.is_home = True
-                dome.set_pos(dome.HOME_POS)
-                if stop_at_home and homes >= min_homes:
-                    break
-
             time.sleep(poll_interval)
             run_time = time.time() - start_time
     finally:
         dome.rotation_stop()
         print("Test complete. Dome stopped.")
         print("  Total encoder ticks: {}".format(total_ticks))
-        print("  Total homes: {}".format(homes))
+        print("  Total home tics: {}".format(home_tics))
+        print("  Home transitions: {}".format(homes))
         print("  Time for {} rotation: {:.2f} seconds".format(direction_name, run_time))
 
-    return run_time, homes, total_ticks
+    return run_time, homes, total_ticks, home_tics
 
 
 def full_rotation_test(dome, max_duration=180):
@@ -206,9 +203,7 @@ def full_rotation_test(dome, max_duration=180):
 def calibrate_home_width(dome, max_duration=60):
     print("\n=== HOME WIDTH CALIBRATION (bidirectional, 3x) ===")
 
-    # Helper to move across home region in a direction, return (start_tick, end_tick)
     def cross_home(direction_func, leave_func, label):
-        # Move off home if needed
         if dome.isHome():
             print("Moving off home ({} for non-home)...".format(label))
             leave_func()
@@ -217,7 +212,6 @@ def calibrate_home_width(dome, max_duration=60):
                 time.sleep(0.05)
             dome.rotation_stop()
             time.sleep(0.2)
-        # Now move into and across home
         print("Crossing home region ({} direction)...".format(label))
         dome.encoder_reset()
         direction_func()
@@ -225,9 +219,34 @@ def calibrate_home_width(dome, max_duration=60):
         home_start_tick = None
         home_end_tick = None
         t0 = time.time()
+        home_tics = 0
+        prev_home_switch = False
         while True:
             encoder_ticks, _ = dome.counter_read()
-            if dome.isHome():
+            home_switch = dome.dome.digital_in(dome.HOME)
+            # Use Telemetry for each tick, now with prev_home_switch
+            Telemetry(
+                {
+                    "run_time": time.time() - t0,
+                    "dome": dome,
+                    "position": dome.get_pos(),
+                    "encoder_ticks": encoder_ticks,
+                    "home_ticks": None,
+                    "encoders": (
+                        dome.dome.digital_in(dome.A),
+                        dome.dome.digital_in(dome.B),
+                    ),
+                    "home_switch": home_switch,
+                    "digital_mask": dome.dome.read_all_digital()
+                    if hasattr(dome.dome, "read_all_digital")
+                    else None,
+                    "homes": None,
+                    "home_tics": home_tics,
+                    "prev_home_switch": prev_home_switch,
+                }
+            )
+            if home_switch:
+                home_tics += 1
                 if not in_home:
                     home_start_tick = encoder_ticks
                     in_home = True
@@ -235,33 +254,43 @@ def calibrate_home_width(dome, max_duration=60):
                 if in_home:
                     home_end_tick = encoder_ticks
                     break
+            prev_home_switch = home_switch
             if time.time() - t0 > max_duration / 3.0:
                 print("Timeout crossing home ({}).".format(label))
                 break
             time.sleep(0.02)
         dome.rotation_stop()
         time.sleep(0.2)
-        return home_start_tick, home_end_tick
+        print(
+            "  Home region: {} to {} ({}), home tics: {}".format(
+                home_start_tick, home_end_tick, label, home_tics
+            )
+        )
+        return home_start_tick, home_end_tick, home_tics
 
-    # Perform 3 bidirectional crossings
     home_widths = []
+    home_tics_list = []
     for i in range(3):
         print("\nPass {}: CW across home".format(i + 1))
-        cw_start, cw_end = cross_home(dome.cw, dome.ccw, "CW")
-        print("  Home region: {} to {} (CW)".format(cw_start, cw_end))
+        cw_start, cw_end, cw_tics = cross_home(dome.cw, dome.ccw, "CW")
         print("Pass {}: CCW across home".format(i + 1))
-        ccw_start, ccw_end = cross_home(dome.ccw, dome.cw, "CCW")
-        print("  Home region: {} to {} (CCW)".format(ccw_start, ccw_end))
+        ccw_start, ccw_end, ccw_tics = cross_home(dome.ccw, dome.cw, "CCW")
         if cw_start is not None and cw_end is not None:
             home_widths.append(abs(cw_end - cw_start))
+            home_tics_list.append(cw_tics)
         if ccw_start is not None and ccw_end is not None:
             home_widths.append(abs(ccw_end - ccw_start))
+            home_tics_list.append(ccw_tics)
 
-    # Average width and center
     if home_widths:
         avg_width = int(round(sum(home_widths) / float(len(home_widths))))
+        avg_tics = (
+            int(round(sum(home_tics_list) / float(len(home_tics_list))))
+            if home_tics_list
+            else 0
+        )
         print("\nAverage home width (ticks): {}".format(avg_width))
-        # Center: move to midpoint of last crossing
+        print("Average home tics: {}".format(avg_tics))
         last_start = ccw_start if ccw_start is not None else cw_start
         last_end = ccw_end if ccw_end is not None else cw_end
         if last_start is not None and last_end is not None:
@@ -278,9 +307,9 @@ def calibrate_home_width(dome, max_duration=60):
                 time.sleep(0.02)
             dome.rotation_stop()
             print("Dome positioned at home midpoint.")
-            return avg_width, midpoint
+            return avg_width, midpoint, avg_tics
     print("Failed to calibrate home width.")
-    return None, None
+    return None, None, None
 
 
 def standard_rotation_test(dome, state_file):

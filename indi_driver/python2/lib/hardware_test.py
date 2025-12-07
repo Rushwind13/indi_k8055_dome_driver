@@ -249,7 +249,6 @@ def calibrate_home_width(dome, max_duration=60):
         telemetry_log = []
         direction_func()
         prev_home_switch = None
-        last_print_tick = None
         while True:
             encoder_ticks, _ = dome.counter_read()
             home_switch = dome.dome.digital_in(dome.HOME)
@@ -278,8 +277,9 @@ def calibrate_home_width(dome, max_duration=60):
             telemetry_log.append(
                 (encoder_ticks, home_switch, enc_a, enc_b, digital_mask)
             )
-            # Print telemetry only every 10 ticks for large sweeps
-            if last_print_tick is None or abs(encoder_ticks - last_print_tick) >= 10:
+
+            # Print telemetry only every 5th tick for large sweeps
+            if encoder_ticks % 5 == 0:
                 Telemetry_short(
                     {
                         "run_time": time.time() - t0,
@@ -295,7 +295,6 @@ def calibrate_home_width(dome, max_duration=60):
                         "prev_home_switch": prev_home_switch,
                     }
                 )
-                last_print_tick = encoder_ticks
             prev_home_switch = home_switch
             # Only break when we have swept past the target, not when home is hit
             if (target_ticks > 0 and encoder_ticks >= target_ticks) or (

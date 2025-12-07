@@ -321,18 +321,6 @@ class Dome:
             new_pos = (self.get_pos() - change_in_pos) % 360.0
         self.set_pos(new_pos, reset_encoder=False)
 
-    def current_pos(self):
-        orig_pos = self.get_pos()
-        encoder_ticks, _ = self.counter_read()
-        # Hardware counter is absolute (always counts up regardless of direction)
-        change_in_pos = (encoder_ticks / self.DEG_TO_TICKS) % 360.0
-        if self.dir == self.CW:
-            new_pos = (orig_pos + change_in_pos) % 360.0
-        else:
-            # CCW: motor moves backwards, but counter still counts up
-            new_pos = (orig_pos - change_in_pos) % 360.0
-        return new_pos
-
     # Reset the tick counters to 0 when you reach target position
     def set_pos(self, in_pos, reset_encoder=True):
         encoder_ticks, _ = self.counter_read()

@@ -105,7 +105,7 @@ def test_rotation(
 
     try:
         while True:
-            position = dome.current_pos()
+            position = dome.get_pos()
             encoder_ticks, home_ticks = dome.counter_read()
             total_ticks = encoder_ticks
             encoders = (dome.dome.digital_in(dome.A), dome.dome.digital_in(dome.B))
@@ -237,7 +237,7 @@ if __name__ == "__main__":
         total_cwticks += cwticks
         print(
             "Step {} complete. Position: {:.1f} degrees".format(
-                step + 1, dome.current_pos()
+                step + 1, dome.get_pos()
             )
         )
         # Save persistent state after each step
@@ -265,7 +265,7 @@ if __name__ == "__main__":
     print("  Home switches: {}".format(total_cwhomes))
     print("  Encoder ticks: {}".format(total_cwticks))
     print("  Time: {:.2f} seconds".format(total_cwtime))
-    print("  Final position: {:.1f} degrees".format(dome.current_pos()))
+    print("  Final position: {:.1f} degrees".format(dome.get_pos()))
     print("")
     # print("CCW Rotation:")
     # print("  Home switches: {}".format(ccwhomes))

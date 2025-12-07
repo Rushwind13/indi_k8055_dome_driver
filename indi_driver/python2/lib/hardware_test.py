@@ -220,25 +220,28 @@ def calibrate_home_width(dome, max_duration=60):
         home_end_tick = None
         t0 = time.time()
         home_tics = 0
-        homes = 0
+        not_to_home = 0
+        home_to_not = 0
         prev_home_switch = False
         while True:
             encoder_ticks, _ = dome.counter_read()
             home_switch = dome.dome.digital_in(dome.HOME)
-            # Count home tics and transitions
+            # Count home tics and both transitions
             if home_switch:
                 home_tics += 1
                 if not prev_home_switch:
-                    homes += 1
+                    not_to_home += 1
                     if not in_home:
                         home_start_tick = encoder_ticks
                         in_home = True
             else:
-                if in_home:
-                    home_end_tick = encoder_ticks
-                    break
+                if prev_home_switch:
+                    home_to_not += 1
+                    if in_home:
+                        home_end_tick = encoder_ticks
+                        break
             prev_home_switch = home_switch
-            # Telemetry for each tick, now with homes and home_tics
+            # Telemetry for each tick, now with both transitions
             Telemetry(
                 {
                     "run_time": time.time() - t0,
@@ -254,9 +257,11 @@ def calibrate_home_width(dome, max_duration=60):
                     "digital_mask": dome.dome.read_all_digital()
                     if hasattr(dome.dome, "read_all_digital")
                     else None,
-                    "homes": homes,
+                    "homes": not_to_home,
                     "home_tics": home_tics,
                     "prev_home_switch": prev_home_switch,
+                    "not_to_home": not_to_home,
+                    "home_to_not": home_to_not,
                 }
             )
             if time.time() - t0 > max_duration / 3.0:
@@ -266,28 +271,38 @@ def calibrate_home_width(dome, max_duration=60):
         dome.rotation_stop()
         time.sleep(0.2)
         print(
-            "  Home region: {} to {} ({}), home tics: {}, home transitions: {}".format(
-                home_start_tick, home_end_tick, label, home_tics, homes
+            "Home: {} to {} ({}), home tics: {}, not->home: {}, home->not: {}".format(
+                home_start_tick,
+                home_end_tick,
+                label,
+                home_tics,
+                not_to_home,
+                home_to_not,
             )
         )
-        return home_start_tick, home_end_tick, home_tics, homes
+        return home_start_tick, home_end_tick, home_tics, not_to_home, home_to_not
 
     home_widths = []
     home_tics_list = []
-    home_transitions_list = []
+    not_to_home_list = []
+    home_to_not_list = []
     for i in range(3):
         print("\nPass {}: CW across home".format(i + 1))
-        cw_start, cw_end, cw_tics, cw_homes = cross_home(dome.cw, dome.ccw, "CW")
+        cw_start, cw_end, cw_tics, cw_n2h, cw_h2n = cross_home(dome.cw, dome.ccw, "CW")
         print("Pass {}: CCW across home".format(i + 1))
-        ccw_start, ccw_end, ccw_tics, ccw_homes = cross_home(dome.ccw, dome.cw, "CCW")
+        ccw_start, ccw_end, ccw_tics, ccw_n2h, ccw_h2n = cross_home(
+            dome.ccw, dome.cw, "CCW"
+        )
         if cw_start is not None and cw_end is not None:
             home_widths.append(abs(cw_end - cw_start))
             home_tics_list.append(cw_tics)
-            home_transitions_list.append(cw_homes)
+            not_to_home_list.append(cw_n2h)
+            home_to_not_list.append(cw_h2n)
         if ccw_start is not None and ccw_end is not None:
             home_widths.append(abs(ccw_end - ccw_start))
             home_tics_list.append(ccw_tics)
-            home_transitions_list.append(ccw_homes)
+            not_to_home_list.append(ccw_n2h)
+            home_to_not_list.append(ccw_h2n)
 
     if home_widths:
         avg_width = int(round(sum(home_widths) / float(len(home_widths))))
@@ -296,14 +311,20 @@ def calibrate_home_width(dome, max_duration=60):
             if home_tics_list
             else 0
         )
-        avg_homes = (
-            int(round(sum(home_transitions_list) / float(len(home_transitions_list))))
-            if home_transitions_list
+        avg_n2h = (
+            float(sum(not_to_home_list)) / len(not_to_home_list)
+            if not_to_home_list
+            else 0
+        )
+        avg_h2n = (
+            float(sum(home_to_not_list)) / len(home_to_not_list)
+            if home_to_not_list
             else 0
         )
         print("\nAverage home width (encoder ticks): {}".format(avg_width))
         print("Average home tics (samples while home): {}".format(avg_tics))
-        print("Average home transitions (not->home): {}".format(avg_homes))
+        print("Average not->home transitions: {:.2f}".format(avg_n2h))
+        print("Average home->not transitions: {:.2f}".format(avg_h2n))
         last_start = ccw_start if ccw_start is not None else cw_start
         last_end = ccw_end if ccw_end is not None else cw_end
         if last_start is not None and last_end is not None:
@@ -320,9 +341,9 @@ def calibrate_home_width(dome, max_duration=60):
                 time.sleep(0.02)
             dome.rotation_stop()
             print("Dome positioned at home midpoint.")
-            return avg_width, midpoint, avg_tics, avg_homes
+            return avg_width, midpoint, avg_tics, avg_n2h, avg_h2n
     print("Failed to calibrate home width.")
-    return None, None, None, None
+    return None, None, None, None, None
 
 
 def standard_rotation_test(dome, state_file):

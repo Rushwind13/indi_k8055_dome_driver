@@ -1,8 +1,11 @@
 #!/usr/bin/env python
 """
-Real hardware test for dome rotation and telemetry.
-Rotates dome for 30 seconds, prints telemetry to console at each polling interval.
+Refactored hardware test for dome rotation and calibration.
+All helpers and test functions are top-level. CLI and persistence are robust.
 """
+
+import json
+import os
 import time
 
 from dome import Dome
@@ -10,7 +13,6 @@ from dome import Dome
 
 def Telemetry(context):
     Telemetry_short(context)
-    # Telemetry_long(context)  # Uncomment for more detailed telemetry
 
 
 def Telemetry_short(context):
@@ -95,7 +97,7 @@ def test_rotation(
 
     rotation_func()
     start_time = time.time()
-    poll_interval = dome.POLL if hasattr(dome, "POLL") else 0.2
+    poll_interval = getattr(dome, "POLL", 0.2)
     dome.homes_reset()
 
     run_time = 0
@@ -172,41 +174,97 @@ def test_rotation(
     return run_time, homes, total_ticks
 
 
-if __name__ == "__main__":
+def full_rotation_test(dome, max_duration=180):
+    print("\n=== FULL ROTATION TEST ===")
+    if not dome.isHome():
+        print("Moving to home position...")
+        dome.home()
+        time.sleep(2)
+    dome.encoder_reset()
+    print("Starting full rotation CW...")
+    dome.cw()
+    start_time = time.time()
+    home_seen = False
+    while True:
+        encoder_ticks, home_ticks = dome.counter_read()
+        if dome.isHome() and home_seen:
+            print("Returned to home position.")
+            break
+        if dome.isHome():
+            home_seen = True
+        if time.time() - start_time > max_duration:
+            print("Timeout reached.")
+            break
+        time.sleep(0.05)
+    dome.rotation_stop()
+    elapsed = time.time() - start_time
+    encoder_ticks, _ = dome.counter_read()
+    print("Full rotation: {} ticks, {:.2f} seconds".format(encoder_ticks, elapsed))
+    return encoder_ticks, elapsed
 
-    # Load persistent position if available
-    import json
-    import os
 
-    state_file = "dome_state.json"
-    if os.path.exists(state_file):
-        with open(state_file, "r") as f:
-            state = json.load(f)
-        dome = Dome()
-        dome.position = state.get("position", dome.HOME_POS)
-        print("Loaded persistent dome position: {:.1f}".format(dome.position))
+def calibrate_home_width(dome, max_duration=60):
+    print("\n=== HOME WIDTH CALIBRATION ===")
+    if dome.isHome():
+        print("Moving off home (CCW)...")
+        dome.ccw()
+        while dome.isHome():
+            time.sleep(0.1)
+        dome.rotation_stop()
+        time.sleep(1)
+    print("Rotating CW to enter home region...")
+    dome.encoder_reset()
+    dome.cw()
+    start_time = time.time()
+    in_home = False
+    home_start_tick = None
+    home_end_tick = None
+    while True:
+        encoder_ticks, _ = dome.counter_read()
+        if dome.isHome():
+            if not in_home:
+                home_start_tick = encoder_ticks
+                in_home = True
+        else:
+            if in_home:
+                home_end_tick = encoder_ticks
+                break
+        if time.time() - start_time > max_duration:
+            print("Timeout reached.")
+            break
+        time.sleep(0.05)
+    dome.rotation_stop()
+    if home_start_tick is not None and home_end_tick is not None:
+        home_ticks = home_end_tick - home_start_tick
+        midpoint = home_start_tick + home_ticks // 2
+        print(
+            "Home region: {} ticks ({} to {}), midpoint {}".format(
+                home_ticks, home_start_tick, home_end_tick, midpoint
+            )
+        )
+        print("Returning to midpoint of home region...")
+        dome.encoder_reset()
+        dome.cw()
+        while True:
+            encoder_ticks, _ = dome.counter_read()
+            if encoder_ticks >= midpoint:
+                break
+            time.sleep(0.05)
+        dome.rotation_stop()
+        print("Dome positioned at home midpoint.")
+        return home_ticks, midpoint
     else:
-        dome = Dome()
+        print("Failed to calibrate home width.")
+        return None, None
 
-    try:
-        print("Checking dome connection...")
-        pos = dome.get_pos()
-        home_switch = dome.dome.digital_in(dome.HOME)
-        print("Connection to dome hardware OK.")
-    except Exception as e:
-        print("ERROR: Dome hardware not connected: %s" % str(e))
-        exit(1)
 
-    print("Starting real hardware test...")
-
-    # Configuration
-    FULL_ROTATION_TICKS = 314  # Total ticks for full 360-degree rotation
-    DEGREES_PER_STEP = 45  # Rotate 45 degrees each step
-    TICKS_PER_STEP = [39, 39, 39, 40] * 2  # Ticks for each 45-degree rotation
-    NUM_STEPS = len(TICKS_PER_STEP)  # Number of rotation steps (8 x 45 = 360 deg)
-
-    MAX_SAFETY_TIMEOUT = 300  # Maximum 5 minutes per test (safety)
-    stop_at_home = False  # Don't stop at home during individual steps
+def standard_rotation_test(dome, state_file):
+    FULL_ROTATION_TICKS = 314
+    DEGREES_PER_STEP = 45
+    TICKS_PER_STEP = [39, 39, 39, 40] * 2
+    NUM_STEPS = len(TICKS_PER_STEP)
+    MAX_SAFETY_TIMEOUT = 300
+    stop_at_home = False
     min_homes_before_stop = 5
 
     print("Configuration:")
@@ -215,7 +273,6 @@ if __name__ == "__main__":
     print("  Ticks per step: {}".format(TICKS_PER_STEP))
     print("")
 
-    # Test CW rotation - 8 steps of 45 degrees each
     total_cwtime = 0
     total_cwhomes = 0
     total_cwticks = 0
@@ -240,24 +297,10 @@ if __name__ == "__main__":
                 step + 1, dome.get_pos()
             )
         )
-        # Save persistent state after each step
         with open(state_file, "w") as f:
             json.dump({"position": dome.get_pos()}, f)
-        time.sleep(5)  # Short pause between steps
+        time.sleep(5)
 
-    # # Test CCW rotation (encoder tick-based)
-    # ccwtime, ccwhomes, ccwticks = test_rotation(
-    #     dome=dome,
-    #     direction_name="CCW",
-    #     rotation_func=dome.ccw,
-    #     rotation_amount=CCW_ROTATION_TICKS,
-    #     max_duration=MAX_SAFETY_TIMEOUT,
-    #     stop_at_home=stop_at_home,
-    #     min_homes=1,  # Stop at first home for CCW
-    #     use_ticks=True
-    # )
-
-    # Print summary
     print("\n" + "=" * 50)
     print("ROTATION TEST SUMMARY")
     print("=" * 50)
@@ -267,8 +310,40 @@ if __name__ == "__main__":
     print("  Time: {:.2f} seconds".format(total_cwtime))
     print("  Final position: {:.1f} degrees".format(dome.get_pos()))
     print("")
-    # print("CCW Rotation:")
-    # print("  Home switches: {}".format(ccwhomes))
-    # print("  Encoder ticks: {}".format(ccwticks))
-    # print("  Time: {:.2f} seconds".format(ccwtime))
     print("=" * 50)
+
+
+def main():
+    state_file = "dome_state.json"
+    dome = Dome()
+    if os.path.exists(state_file):
+        with open(state_file, "r") as f:
+            state = json.load(f)
+        dome.position = state.get("position", dome.HOME_POS)
+        print("Loaded persistent dome position: {:.1f}".format(dome.position))
+
+    print("\nSelect test to run:")
+    print("  1. Standard 8-step CW rotation test")
+    print("  2. Full rotation encoder calibration")
+    print("  3. Home width calibration")
+    try:
+        choice = raw_input("Enter choice (1/2/3): ").strip()
+    except NameError:
+        choice = input("Enter choice (1/2/3): ").strip()
+
+    if choice == "2":
+        full_rotation_test(dome)
+        with open(state_file, "w") as f:
+            json.dump({"position": dome.get_pos()}, f)
+        return
+    elif choice == "3":
+        calibrate_home_width(dome)
+        with open(state_file, "w") as f:
+            json.dump({"position": dome.get_pos()}, f)
+        return
+    else:
+        standard_rotation_test(dome, state_file)
+
+
+if __name__ == "__main__":
+    main()

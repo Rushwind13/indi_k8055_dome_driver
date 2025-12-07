@@ -453,16 +453,10 @@ def main():
     print("  1. Standard 8-step CW rotation test")
     print("  2. Full rotation encoder calibration")
     print("  3. Home width calibration")
-    try:
-        raw_input
-    except NameError:
-        raw_input = input
-    choice = raw_input("Enter choice (1/2/3): ").strip()
+    choice = input("Enter choice (1/2/3): ").strip()
 
     if choice == "2":
-        dir_choice = (
-            raw_input("Full rotation direction? (CW/CCW) [CW]: ").strip().upper()
-        )
+        dir_choice = input("Full rotation direction? (CW/CCW) [CW]: ").strip().upper()
         if dir_choice not in ("CW", "CCW"):
             dir_choice = "CW"
         full_rotation_test(dome, direction=dir_choice)

@@ -311,21 +311,15 @@ class Dome:
         return self.position
 
     def update_pos(self):
-        if self.isHome():
-            # Reset encoder when at home position
-            self.set_pos(self.HOME_POS)
-            return
+        # Only reset encoder if set_pos is called with HOME_POS
+        # (not just when home is detected)
         encoder_ticks, _ = self.counter_read()
-        # Hardware counter is absolute (always counts up regardless of direction)
-        # Direction is applied by motor wiring, not by software calculation
         change_in_pos = (encoder_ticks * self.DEG_TO_TICKS) % 360.0
-        # Always ADD ticks - CW adds forward, CCW adds backward
         if self.dir == self.CW:
             new_pos = (self.get_pos() + change_in_pos) % 360.0
         else:
-            # CCW: motor moves backwards, but counter still counts up
             new_pos = (self.get_pos() - change_in_pos) % 360.0
-        self.set_pos(new_pos)
+        self.set_pos(new_pos, reset_encoder=False)
 
     def current_pos(self):
         orig_pos = self.get_pos()

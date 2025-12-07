@@ -173,12 +173,23 @@ def test_rotation(
 
 
 if __name__ == "__main__":
-    dome = Dome()
-    # Use built-in status and counter methods for connection check and telemetry
+
+    # Load persistent position if available
+    import json
+    import os
+
+    state_file = "dome_state.json"
+    if os.path.exists(state_file):
+        with open(state_file, "r") as f:
+            state = json.load(f)
+        dome = Dome()
+        dome.position = state.get("position", dome.HOME_POS)
+        print("Loaded persistent dome position: {:.1f}".format(dome.position))
+    else:
+        dome = Dome()
+
     try:
         print("Checking dome connection...")
-        # Try reading position and counters
-
         pos = dome.get_pos()
         home_switch = dome.dome.digital_in(dome.HOME)
         print("Connection to dome hardware OK.")
@@ -229,6 +240,9 @@ if __name__ == "__main__":
                 step + 1, dome.current_pos()
             )
         )
+        # Save persistent state after each step
+        with open(state_file, "w") as f:
+            json.dump({"position": dome.get_pos()}, f)
         time.sleep(5)  # Short pause between steps
 
     # # Test CCW rotation (encoder tick-based)

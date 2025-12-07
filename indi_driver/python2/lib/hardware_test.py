@@ -243,7 +243,7 @@ def full_rotation_test(dome, max_duration=180, direction="CW"):
 def calibrate_home_width(dome, max_duration=60):
     print("\n=== HOME WIDTH CALIBRATION (bidirectional, 3x) ===")
 
-    def cross_home(direction_func, leave_func, label):
+    def cross_home(direction_func, leave_func, label, sweep_ticks=50):
         if dome.isHome():
             print("Moving off home ({} for non-home)...".format(label))
             leave_func()
@@ -252,7 +252,11 @@ def calibrate_home_width(dome, max_duration=60):
                 time.sleep(0.05)
             dome.rotation_stop()
             time.sleep(0.2)
-        print("Crossing home region ({} direction)...".format(label))
+        print(
+            "Sweeping across home region ({} direction, {} ticks)...".format(
+                label, sweep_ticks
+            )
+        )
         dome.encoder_reset()
         direction_func()
         in_home = False
@@ -263,6 +267,9 @@ def calibrate_home_width(dome, max_duration=60):
         not_to_home = 0
         home_to_not = 0
         prev_home_switch = False
+        first_home_tick = None
+        last_home_tick = None
+        sweep_done = False
         while True:
             encoder_ticks, _ = dome.counter_read()
             home_switch = dome.dome.digital_in(dome.HOME)
@@ -274,12 +281,15 @@ def calibrate_home_width(dome, max_duration=60):
                     if not in_home:
                         home_start_tick = encoder_ticks
                         in_home = True
+                if first_home_tick is None:
+                    first_home_tick = encoder_ticks
+                last_home_tick = encoder_ticks
             else:
                 if prev_home_switch:
                     home_to_not += 1
                     if in_home:
                         home_end_tick = encoder_ticks
-                        break
+                        in_home = False
             prev_home_switch = home_switch
             # Telemetry for each tick, now with both transitions
             Telemetry(
@@ -304,8 +314,13 @@ def calibrate_home_width(dome, max_duration=60):
                     "home_to_not": home_to_not,
                 }
             )
-            if time.time() - t0 > max_duration / 3.0:
-                print("Timeout crossing home ({}).".format(label))
+            # End sweep after sweep_ticks
+            if abs(encoder_ticks) >= sweep_ticks:
+                sweep_done = True
+            if sweep_done:
+                break
+            if time.time() - t0 > max_duration / 2.0:
+                print("Timeout sweeping home ({}).".format(label))
                 break
             time.sleep(0.02)
         dome.rotation_stop()
@@ -320,19 +335,52 @@ def calibrate_home_width(dome, max_duration=60):
                 home_to_not,
             )
         )
-        return home_start_tick, home_end_tick, home_tics, not_to_home, home_to_not
+        print(
+            "First home tick: {} | Last home tick: {} | Total sweep ticks: {}".format(
+                first_home_tick, last_home_tick, abs(encoder_ticks)
+            )
+        )
+        return (
+            home_start_tick,
+            home_end_tick,
+            home_tics,
+            not_to_home,
+            home_to_not,
+            first_home_tick,
+            last_home_tick,
+            abs(encoder_ticks),
+        )
 
     home_widths = []
     home_tics_list = []
     not_to_home_list = []
     home_to_not_list = []
+    sweep_ticks = 50
     for i in range(3):
         print("\nPass {}: CW across home".format(i + 1))
-        cw_start, cw_end, cw_tics, cw_n2h, cw_h2n = cross_home(dome.cw, dome.ccw, "CW")
+        cw_results = cross_home(dome.cw, dome.ccw, "CW", sweep_ticks)
         print("Pass {}: CCW across home".format(i + 1))
-        ccw_start, ccw_end, ccw_tics, ccw_n2h, ccw_h2n = cross_home(
-            dome.ccw, dome.cw, "CCW"
-        )
+        ccw_results = cross_home(dome.ccw, dome.cw, "CCW", sweep_ticks)
+        (
+            cw_start,
+            cw_end,
+            cw_tics,
+            cw_n2h,
+            cw_h2n,
+            cw_first,
+            cw_last,
+            cw_total,
+        ) = cw_results
+        (
+            ccw_start,
+            ccw_end,
+            ccw_tics,
+            ccw_n2h,
+            ccw_h2n,
+            ccw_first,
+            ccw_last,
+            ccw_total,
+        ) = ccw_results
         if cw_start is not None and cw_end is not None:
             home_widths.append(abs(cw_end - cw_start))
             home_tics_list.append(cw_tics)
@@ -343,6 +391,16 @@ def calibrate_home_width(dome, max_duration=60):
             home_tics_list.append(ccw_tics)
             not_to_home_list.append(ccw_n2h)
             home_to_not_list.append(ccw_h2n)
+        print(
+            "CW sweep: first home tick {}, last home tick {}, total sweep {}".format(
+                cw_first, cw_last, cw_total
+            )
+        )
+        print(
+            "CCW sweep: first home tick {}, last home tick {}, total sweep {}".format(
+                ccw_first, ccw_last, ccw_total
+            )
+        )
 
     if home_widths:
         avg_width = int(round(sum(home_widths) / float(len(home_widths))))

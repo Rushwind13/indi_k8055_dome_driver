@@ -243,54 +243,14 @@ def full_rotation_test(dome, max_duration=180, direction="CW"):
 def calibrate_home_width(dome, max_duration=60):
     print("\n=== HOME WIDTH CALIBRATION (bidirectional, 3x) ===")
 
-    def cross_home(direction_func, leave_func, label, sweep_ticks=50):
-        if dome.isHome():
-            print("Moving off home ({} for non-home)...".format(label))
-            leave_func()
-            t0 = time.time()
-            while dome.isHome() and (time.time() - t0 < max_duration / 3.0):
-                time.sleep(0.05)
-            dome.rotation_stop()
-            time.sleep(0.2)
-        print(
-            "Sweeping across home region ({} direction, {} ticks)...".format(
-                label, sweep_ticks
-            )
-        )
-        dome.encoder_reset()
-        direction_func()
-        in_home = False
-        home_start_tick = None
-        home_end_tick = None
+    def sweep_segment(dome, target_ticks, direction_func, label, max_duration):
+        print("Sweeping {} to {} ticks...".format(label, target_ticks))
         t0 = time.time()
-        home_tics = 0
-        not_to_home = 0
-        home_to_not = 0
-        prev_home_switch = False
-        first_home_tick = None
-        last_home_tick = None
+        telemetry_log = []
+        direction_func()
         while True:
             encoder_ticks, _ = dome.counter_read()
             home_switch = dome.dome.digital_in(dome.HOME)
-            # Count home tics and both transitions
-            if home_switch:
-                home_tics += 1
-                if not prev_home_switch:
-                    not_to_home += 1
-                    if not in_home:
-                        home_start_tick = encoder_ticks
-                        in_home = True
-                if first_home_tick is None:
-                    first_home_tick = encoder_ticks
-                last_home_tick = encoder_ticks
-            else:
-                if prev_home_switch:
-                    home_to_not += 1
-                    if in_home:
-                        home_end_tick = encoder_ticks
-                        in_home = False
-            prev_home_switch = home_switch
-            # Telemetry for each tick, now with both transitions
             Telemetry(
                 {
                     "run_time": time.time() - t0,
@@ -306,139 +266,85 @@ def calibrate_home_width(dome, max_duration=60):
                     "digital_mask": dome.dome.read_all_digital()
                     if hasattr(dome.dome, "read_all_digital")
                     else None,
-                    "homes": not_to_home,
-                    "home_tics": home_tics,
-                    "prev_home_switch": prev_home_switch,
-                    "not_to_home": not_to_home,
-                    "home_to_not": home_to_not,
+                    "homes": None,
+                    "home_tics": None,
+                    "prev_home_switch": None,
                 }
             )
-            # End sweep after double sweep_ticks
-            if abs(encoder_ticks) >= sweep_ticks * 2:
+            telemetry_log.append((encoder_ticks, home_switch))
+            if (target_ticks > 0 and encoder_ticks >= target_ticks) or (
+                target_ticks < 0 and encoder_ticks <= target_ticks
+            ):
                 break
-            if time.time() - t0 > max_duration / 2.0:
-                print("Timeout sweeping home ({}).".format(label))
+            if time.time() - t0 > max_duration:
+                print("Timeout on {} sweep.".format(label))
                 break
-            time.sleep(0.02)
+            time.sleep(0.01)
         dome.rotation_stop()
         time.sleep(0.2)
         print(
-            "Home: {} to {} ({}), home tics: {}, not->home: {}, home->not: {}".format(
-                home_start_tick,
-                home_end_tick,
-                label,
-                home_tics,
-                not_to_home,
-                home_to_not,
-            )
+            "{} sweep complete. Final encoder position: {}".format(label, encoder_ticks)
         )
-        print(
-            "First home tick: {} | Last home tick: {} | Total sweep ticks: {}".format(
-                first_home_tick, last_home_tick, abs(encoder_ticks)
-            )
-        )
-        return (
-            home_start_tick,
-            home_end_tick,
-            home_tics,
-            not_to_home,
-            home_to_not,
-            first_home_tick,
-            last_home_tick,
-            abs(encoder_ticks),
-        )
+        return telemetry_log, encoder_ticks
 
-    home_widths = []
-    home_tics_list = []
-    not_to_home_list = []
-    home_to_not_list = []
+    def sweep_pattern(dome, sweep_ticks=50, max_duration=60):
+        print(
+            "Starting sweep pattern: +{} -> -{} -> +{} -> -{} (centered at 0)".format(
+                sweep_ticks, sweep_ticks * 2, sweep_ticks * 2, sweep_ticks
+            )
+        )
+        dome.encoder_reset()
+        logs = []
+        # Move +50
+        log1, pos1 = sweep_segment(
+            dome, sweep_ticks, dome.cw, "+{} CW".format(sweep_ticks), max_duration / 8.0
+        )
+        logs.append(("+{} CW".format(sweep_ticks), log1))
+        # Move -100
+        log2, pos2 = sweep_segment(
+            dome,
+            -sweep_ticks,
+            dome.ccw,
+            "-{} CCW".format(sweep_ticks * 2),
+            max_duration / 4.0,
+        )
+        logs.append(("-{} CCW".format(sweep_ticks * 2), log2))
+        # Move +100
+        log3, pos3 = sweep_segment(
+            dome,
+            sweep_ticks,
+            dome.cw,
+            "+{} CW".format(sweep_ticks * 2),
+            max_duration / 4.0,
+        )
+        logs.append(("+{} CW".format(sweep_ticks * 2), log3))
+        # Move -50
+        log4, pos4 = sweep_segment(
+            dome,
+            0,
+            dome.ccw,
+            "-{} CCW (return to center)".format(sweep_ticks),
+            max_duration / 8.0,
+        )
+        logs.append(("-{} CCW (return to center)".format(sweep_ticks), log4))
+        print("Sweep complete. Final encoder pos: {} (should be near 0)".format(pos4))
+        # Summary: print home switch transitions for each segment
+        for label, log in logs:
+            transitions = sum(
+                1 for i in range(1, len(log)) if log[i][1] != log[i - 1][1]
+            )
+            print("{}: {} home switch transitions".format(label, transitions))
+        return pos4
+
     sweep_ticks = 50
     for i in range(3):
-        print("\nPass {}: CW across home".format(i + 1))
-        cw_results = cross_home(dome.cw, dome.ccw, "CW", sweep_ticks)
-        print("Pass {}: CCW across home".format(i + 1))
-        ccw_results = cross_home(dome.ccw, dome.cw, "CCW", sweep_ticks)
-        (
-            cw_start,
-            cw_end,
-            cw_tics,
-            cw_n2h,
-            cw_h2n,
-            cw_first,
-            cw_last,
-            cw_total,
-        ) = cw_results
-        (
-            ccw_start,
-            ccw_end,
-            ccw_tics,
-            ccw_n2h,
-            ccw_h2n,
-            ccw_first,
-            ccw_last,
-            ccw_total,
-        ) = ccw_results
-        if cw_start is not None and cw_end is not None:
-            home_widths.append(abs(cw_end - cw_start))
-            home_tics_list.append(cw_tics)
-            not_to_home_list.append(cw_n2h)
-            home_to_not_list.append(cw_h2n)
-        if ccw_start is not None and ccw_end is not None:
-            home_widths.append(abs(ccw_end - ccw_start))
-            home_tics_list.append(ccw_tics)
-            not_to_home_list.append(ccw_n2h)
-            home_to_not_list.append(ccw_h2n)
+        print("\nSweep pass {}:".format(i + 1))
+        final_pos = sweep_pattern(dome, sweep_ticks, max_duration)
         print(
-            "CW sweep: first home tick {}, last home tick {}, total sweep {}".format(
-                cw_first, cw_last, cw_total
+            "Sweep pass {} complete. Final encoder position: {}".format(
+                i + 1, final_pos
             )
         )
-        print(
-            "CCW sweep: first home tick {}, last home tick {}, total sweep {}".format(
-                ccw_first, ccw_last, ccw_total
-            )
-        )
-
-    if home_widths:
-        avg_width = int(round(sum(home_widths) / float(len(home_widths))))
-        avg_tics = (
-            int(round(sum(home_tics_list) / float(len(home_tics_list))))
-            if home_tics_list
-            else 0
-        )
-        avg_n2h = (
-            float(sum(not_to_home_list)) / len(not_to_home_list)
-            if not_to_home_list
-            else 0
-        )
-        avg_h2n = (
-            float(sum(home_to_not_list)) / len(home_to_not_list)
-            if home_to_not_list
-            else 0
-        )
-        print("\nAverage home width (encoder ticks): {}".format(avg_width))
-        print("Average home tics (samples while home): {}".format(avg_tics))
-        print("Average not->home transitions: {:.2f}".format(avg_n2h))
-        print("Average home->not transitions: {:.2f}".format(avg_h2n))
-        last_start = ccw_start if ccw_start is not None else cw_start
-        last_end = ccw_end if ccw_end is not None else cw_end
-        if last_start is not None and last_end is not None:
-            midpoint = last_start + (last_end - last_start) // 2
-            print("Moving to midpoint of last home region: {}".format(midpoint))
-            dome.encoder_reset()
-            dome.cw() if midpoint >= 0 else dome.ccw()
-            while True:
-                encoder_ticks, _ = dome.counter_read()
-                if (midpoint >= 0 and encoder_ticks >= midpoint) or (
-                    midpoint < 0 and encoder_ticks <= midpoint
-                ):
-                    break
-                time.sleep(0.02)
-            dome.rotation_stop()
-            print("Dome positioned at home midpoint.")
-            return avg_width, midpoint, avg_tics, avg_n2h, avg_h2n
-    print("Failed to calibrate home width.")
-    return None, None, None, None, None
 
 
 def standard_rotation_test(dome, state_file):

@@ -324,36 +324,36 @@ def calibrate_home_width(dome, max_duration=60):
         )
         dome.encoder_reset()
         logs = []
-        # Move +50
+        # Move +50 (CW): 30 sec timeout
         log1, pos1 = sweep_segment(
-            dome, sweep_ticks, dome.cw, "+{} CW".format(sweep_ticks), max_duration / 8.0
+            dome, sweep_ticks, dome.cw, "+{} CW".format(sweep_ticks), 30.0
         )
         logs.append(("+{} CW".format(sweep_ticks), log1))
-        # Move -100
+        # Move -100 (CCW): 50 sec timeout
         log2, pos2 = sweep_segment(
             dome,
             -sweep_ticks,
             dome.ccw,
             "-{} CCW".format(sweep_ticks * 2),
-            max_duration / 4.0,
+            50.0,
         )
         logs.append(("-{} CCW".format(sweep_ticks * 2), log2))
-        # Move +100
+        # Move +100 (CW): 50 sec timeout
         log3, pos3 = sweep_segment(
             dome,
             sweep_ticks,
             dome.cw,
             "+{} CW".format(sweep_ticks * 2),
-            max_duration / 4.0,
+            50.0,
         )
         logs.append(("+{} CW".format(sweep_ticks * 2), log3))
-        # Move -50
+        # Move -50 (CCW, return to center): 30 sec timeout
         log4, pos4 = sweep_segment(
             dome,
             0,
             dome.ccw,
             "-{} CCW (return to center)".format(sweep_ticks),
-            max_duration / 8.0,
+            30.0,
         )
         logs.append(("-{} CCW (return to center)".format(sweep_ticks), log4))
         print("Sweep complete. Final encoder pos: {} (should be near 0)".format(pos4))

@@ -6,6 +6,7 @@ All helpers and test functions are top-level. CLI and persistence are robust.
 
 import json
 import os
+import sys
 import time
 
 from dome import Dome
@@ -449,21 +450,29 @@ def main():
         dome.position = state.get("position", dome.HOME_POS)
         print("Loaded persistent dome position: {:.1f}".format(dome.position))
 
-    print("\nSelect test to run:")
-    print("  1. Standard 8-step CW rotation test")
-    print("  2. Full rotation encoder calibration")
-    print("  3. Home width calibration")
-    choice = input("Enter choice (1/2/3): ").strip()
+    # CLI arg/env var selection
+    # Usage: python hardware_test.py [test] [direction]
+    # test: 1=standard, 2=full rotation, 3=home width
+    # direction: CW or CCW (only for test 2)
+    test_choice = os.environ.get("DOME_TEST", None)
+    direction = os.environ.get("DOME_DIRECTION", None)
+    if len(sys.argv) > 1:
+        test_choice = sys.argv[1]
+    if len(sys.argv) > 2:
+        direction = sys.argv[2]
+    if not test_choice:
+        test_choice = "1"
+    if not direction:
+        direction = "CW"
 
-    if choice == "2":
-        dir_choice = input("Full rotation direction? (CW/CCW) [CW]: ").strip().upper()
-        if dir_choice not in ("CW", "CCW"):
-            dir_choice = "CW"
-        full_rotation_test(dome, direction=dir_choice)
+    print("Test selection: {}".format(test_choice))
+    if test_choice == "2":
+        print("Full rotation direction: {}".format(direction))
+        full_rotation_test(dome, direction=direction)
         with open(state_file, "w") as f:
             json.dump({"position": dome.get_pos()}, f)
         return
-    elif choice == "3":
+    elif test_choice == "3":
         calibrate_home_width(dome)
         with open(state_file, "w") as f:
             json.dump({"position": dome.get_pos()}, f)

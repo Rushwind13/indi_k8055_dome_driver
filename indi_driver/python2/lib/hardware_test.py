@@ -259,44 +259,46 @@ def calibrate_home_width(dome, max_duration=60):
                 if hasattr(dome.dome, "read_all_digital")
                 else None
             )
-            Telemetry(
-                {
-                    "run_time": time.time() - t0,
-                    "dome": dome,
-                    "position": dome.get_pos(),
-                    "encoder_ticks": encoder_ticks,
-                    "home_ticks": None,
-                    "encoders": (enc_a, enc_b),
-                    "home_switch": home_switch,
-                    "digital_mask": digital_mask,
-                    "homes": None,
-                    "home_tics": None,
-                    "prev_home_switch": prev_home_switch,
-                }
-            )
+            # Only output telemetry every 5th tick
+            if encoder_ticks % 5 == 0:
+                if len(telemetry_log) == 1 or encoder_ticks != telemetry_log[-2][0]:
+                    Telemetry_short(
+                        {
+                            "run_time": time.time() - t0,
+                            "dome": dome,
+                            "position": dome.get_pos(),
+                            "encoder_ticks": encoder_ticks,
+                            "home_ticks": None,
+                            "encoders": (enc_a, enc_b),
+                            "home_switch": home_switch,
+                            "digital_mask": digital_mask,
+                            "homes": None,
+                            "home_tics": None,
+                            "prev_home_switch": prev_home_switch,
+                        }
+                    )
             telemetry_log.append(
                 (encoder_ticks, home_switch, enc_a, enc_b, digital_mask)
             )
 
             # Print telemetry only every 5th tick
-            if encoder_ticks % 5 == 0 and (
-                len(telemetry_log) == 1 or encoder_ticks != telemetry_log[-2][0]
-            ):
-                Telemetry_short(
-                    {
-                        "run_time": time.time() - t0,
-                        "dome": dome,
-                        "position": dome.get_pos(),
-                        "encoder_ticks": encoder_ticks,
-                        "home_ticks": None,
-                        "encoders": (enc_a, enc_b),
-                        "home_switch": home_switch,
-                        "digital_mask": digital_mask,
-                        "homes": None,
-                        "home_tics": None,
-                        "prev_home_switch": prev_home_switch,
-                    }
-                )
+            if encoder_ticks % 5 == 0:
+                if len(telemetry_log) == 1 or encoder_ticks != telemetry_log[-2][0]:
+                    Telemetry_short(
+                        {
+                            "run_time": time.time() - t0,
+                            "dome": dome,
+                            "position": dome.get_pos(),
+                            "encoder_ticks": encoder_ticks,
+                            "home_ticks": None,
+                            "encoders": (enc_a, enc_b),
+                            "home_switch": home_switch,
+                            "digital_mask": digital_mask,
+                            "homes": None,
+                            "home_tics": None,
+                            "prev_home_switch": prev_home_switch,
+                        }
+                    )
             prev_home_switch = home_switch
             # Only break when we have swept past the target, not when home is hit
             if (target_ticks > 0 and encoder_ticks >= target_ticks) or (
@@ -432,11 +434,22 @@ def standard_rotation_test(dome, state_file):
 def main():
     state_file = "dome_state.json"
     dome = Dome()
+    # Load persistent state
     if os.path.exists(state_file):
         with open(state_file, "r") as f:
             state = json.load(f)
         dome.position = state.get("position", dome.HOME_POS)
         print("Loaded persistent dome position: {:.1f}".format(dome.position))
+    # Enforce home position from config
+    config_home = getattr(dome, "HOME_POS", None)
+    if config_home is None:
+        raise RuntimeError("Dome config missing HOME_POS. Cannot continue.")
+    if dome.position == 0:
+        raise RuntimeError(
+            "ERROR: Home must be set to value {}. Check dome_config.json.".format(
+                config_home
+            )
+        )
 
     # CLI arg/env var selection
     # Usage: python hardware_test.py [test] [direction]

@@ -278,8 +278,10 @@ def calibrate_home_width(dome, max_duration=60):
                 (encoder_ticks, home_switch, enc_a, enc_b, digital_mask)
             )
 
-            # Print telemetry only every 5th tick for large sweeps
-            if encoder_ticks % 5 == 0:
+            # Print telemetry only every 5th tick
+            if encoder_ticks % 5 == 0 and (
+                len(telemetry_log) == 1 or encoder_ticks != telemetry_log[-2][0]
+            ):
                 Telemetry_short(
                     {
                         "run_time": time.time() - t0,

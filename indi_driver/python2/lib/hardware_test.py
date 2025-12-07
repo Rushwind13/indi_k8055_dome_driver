@@ -184,30 +184,33 @@ def full_rotation_test(dome, max_duration=180):
     start_time = time.time()
     left_home = False
     prev_home_switch = dome.isHome()
+    last_telemetry_tick = 0
     while True:
         encoder_ticks, home_ticks = dome.counter_read()
         home_switch = dome.dome.digital_in(dome.HOME)
-        # Telemetry per tick
-        Telemetry(
-            {
-                "run_time": time.time() - start_time,
-                "dome": dome,
-                "position": dome.get_pos(),
-                "encoder_ticks": encoder_ticks,
-                "home_ticks": home_ticks,
-                "encoders": (
-                    dome.dome.digital_in(dome.A),
-                    dome.dome.digital_in(dome.B),
-                ),
-                "home_switch": home_switch,
-                "digital_mask": dome.dome.read_all_digital()
-                if hasattr(dome.dome, "read_all_digital")
-                else None,
-                "homes": None,
-                "home_tics": None,
-                "prev_home_switch": prev_home_switch,
-            }
-        )
+        # Telemetry every 10 encoder ticks
+        if encoder_ticks - last_telemetry_tick >= 10 or encoder_ticks == 0:
+            Telemetry(
+                {
+                    "run_time": time.time() - start_time,
+                    "dome": dome,
+                    "position": dome.get_pos(),
+                    "encoder_ticks": encoder_ticks,
+                    "home_ticks": home_ticks,
+                    "encoders": (
+                        dome.dome.digital_in(dome.A),
+                        dome.dome.digital_in(dome.B),
+                    ),
+                    "home_switch": home_switch,
+                    "digital_mask": dome.dome.read_all_digital()
+                    if hasattr(dome.dome, "read_all_digital")
+                    else None,
+                    "homes": None,
+                    "home_tics": None,
+                    "prev_home_switch": prev_home_switch,
+                }
+            )
+            last_telemetry_tick = encoder_ticks
         # Wait until we've left home at least once
         if not left_home and not home_switch and prev_home_switch:
             left_home = True

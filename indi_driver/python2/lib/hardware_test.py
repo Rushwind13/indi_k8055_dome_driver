@@ -269,7 +269,6 @@ def calibrate_home_width(dome, max_duration=60):
         prev_home_switch = False
         first_home_tick = None
         last_home_tick = None
-        sweep_done = False
         while True:
             encoder_ticks, _ = dome.counter_read()
             home_switch = dome.dome.digital_in(dome.HOME)
@@ -314,10 +313,8 @@ def calibrate_home_width(dome, max_duration=60):
                     "home_to_not": home_to_not,
                 }
             )
-            # End sweep after sweep_ticks
-            if abs(encoder_ticks) >= sweep_ticks:
-                sweep_done = True
-            if sweep_done:
+            # End sweep after double sweep_ticks
+            if abs(encoder_ticks) >= sweep_ticks * 2:
                 break
             if time.time() - t0 > max_duration / 2.0:
                 print("Timeout sweeping home ({}).".format(label))

@@ -329,6 +329,8 @@ def calibrate_home_width(dome, max_duration=60):
             dome, sweep_ticks, dome.cw, "+{} CW".format(sweep_ticks), 30.0
         )
         logs.append(("+{} CW".format(sweep_ticks), log1))
+        dome.rotation_stop()
+        time.sleep(5)
         # Move -100 (CCW): 50 sec timeout
         log2, pos2 = sweep_segment(
             dome,
@@ -338,6 +340,8 @@ def calibrate_home_width(dome, max_duration=60):
             50.0,
         )
         logs.append(("-{} CCW".format(sweep_ticks * 2), log2))
+        dome.rotation_stop()
+        time.sleep(5)
         # Move +100 (CW): 50 sec timeout
         log3, pos3 = sweep_segment(
             dome,
@@ -347,6 +351,8 @@ def calibrate_home_width(dome, max_duration=60):
             50.0,
         )
         logs.append(("+{} CW".format(sweep_ticks * 2), log3))
+        dome.rotation_stop()
+        time.sleep(5)
         # Move -50 (CCW, return to center): 30 sec timeout
         log4, pos4 = sweep_segment(
             dome,
@@ -356,6 +362,8 @@ def calibrate_home_width(dome, max_duration=60):
             30.0,
         )
         logs.append(("-{} CCW (return to center)".format(sweep_ticks), log4))
+        dome.rotation_stop()
+        time.sleep(5)
         print("Sweep complete. Final encoder pos: {} (should be near 0)".format(pos4))
         # Summary: print home switch transitions for each segment
         for label, log in logs:

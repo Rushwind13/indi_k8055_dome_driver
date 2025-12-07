@@ -318,7 +318,7 @@ class Dome:
         encoder_ticks, _ = self.counter_read()
         # Hardware counter is absolute (always counts up regardless of direction)
         # Direction is applied by motor wiring, not by software calculation
-        change_in_pos = (encoder_ticks / self.DEG_TO_TICKS) % 360.0
+        change_in_pos = (encoder_ticks * self.DEG_TO_TICKS) % 360.0
         # Always ADD ticks - CW adds forward, CCW adds backward
         if self.dir == self.CW:
             new_pos = (self.get_pos() + change_in_pos) % 360.0

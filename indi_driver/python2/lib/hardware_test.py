@@ -229,6 +229,7 @@ if __name__ == "__main__":
                 step + 1, dome.current_pos()
             )
         )
+        time.sleep(5)  # Short pause between steps
 
     # # Test CCW rotation (encoder tick-based)
     # ccwtime, ccwhomes, ccwticks = test_rotation(

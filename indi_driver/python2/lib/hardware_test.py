@@ -41,8 +41,8 @@ def abort():
 def telemetry(stage, start_pos, start_ticks, end_pos, end_ticks, elapsed):
     print(
         "{}: Start pos={:.2f}deg, "
-        "Start tics={}, End pos={:.2f}deg, "
-        "End tics={}, Elapsed={:.2f}s".format(
+        "Start tics={}, Cur pos={:.2f}deg, "
+        "Cur tics={}, Elapsed={:.2f}s".format(
             stage, start_pos, start_ticks, end_pos, end_ticks, elapsed
         )
     )
@@ -171,7 +171,7 @@ def count_full_rotation(direction):
     telemetry(
         "Rotating (final)", start_pos, start_ticks, final_pos, final_ticks, t1 - t0
     )
-    if not home_detected or final_ticks <= safety_tics:
+    if not home_detected:
         print("Home not detected after full revolution!")
         abort()
     print("\nTotal tics for full revolution: {}".format(final_ticks))

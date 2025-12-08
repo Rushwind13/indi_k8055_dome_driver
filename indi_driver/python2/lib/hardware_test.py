@@ -129,6 +129,16 @@ def count_full_rotation(direction):
     )
     save_state(dome, "count_full_rotation_home")
 
+    # Always move away from home before starting the full revolution
+    print("Moving 20 tics away from home before starting full revolution...")
+    move_ticks(
+        dome,
+        "ccw" if direction.lower() == "cw" else "cw",
+        20,
+        "Pre-Rotation Move",
+        detect_home=False,
+    )
+
     print("Starting rotation...")
     home_detected, encoder_ticks = move_ticks(
         dome,

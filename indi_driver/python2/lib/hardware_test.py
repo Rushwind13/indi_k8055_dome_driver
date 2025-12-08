@@ -13,6 +13,7 @@ Usage:
     python hardware_test.py calibrate_home
 """
 
+import json
 import os
 import sys
 import time
@@ -25,6 +26,36 @@ sys.path.insert(
 )
 
 SEGMENT_TICS = [39, 39, 39, 40, 39, 39, 39, 40]
+
+
+# --- Config helpers ---
+def _dome_config(section, key, value=None, append=False, maxlen=None):
+    config_path = os.path.join(os.path.dirname(__file__), "../dome_config.json")
+    with open(config_path, "r") as f:
+        config = json.load(f)
+        updated = False
+    if section not in config:
+        config[section] = {}
+        updated = True
+    if append:
+        if key not in config[section]:
+            config[section][key] = []
+        config[section][key].append(value)
+        updated = True
+        if maxlen and len(config[section][key]) > maxlen:
+            config[section][key] = config[section][key][-maxlen:]
+    elif value is not None:
+        config[section][key] = value
+        updated = True
+    elif key not in config[section]:
+        # If key missing and no value provided, create empty list
+        config[section][key] = []
+        updated = True
+    # Write back
+    if updated:
+        with open(config_path, "w") as f:
+            json.dump(config, f, indent=4)
+    return config[section][key]
 
 
 # --- Shared helpers ---
@@ -116,6 +147,7 @@ def rotate_segments():
 
 
 def count_full_rotation(direction):
+
     """
     Count total tics for a full revolution in specified direction (CW/CCW)
     """
@@ -193,14 +225,31 @@ def count_full_rotation(direction):
         print("Home not detected after full revolution!")
         abort()
     print("\nTotal tics for full revolution: {}".format(final_ticks))
+    # Save to config history using helper
+    key_cw = "last_10_full_rotation_tics_cw"
+    key_ccw = "last_10_full_rotation_tics_ccw"
+    if direction.lower() == "cw":
+        all_cw = _dome_config(
+            "calibration", key_cw, final_ticks, append=True, maxlen=10
+        )
+        all_ccw = _dome_config("calibration", key_ccw)
+    else:
+        all_ccw = _dome_config(
+            "calibration", key_ccw, final_ticks, append=True, maxlen=10
+        )
+        all_cw = _dome_config("calibration", key_cw)
+    # Output both lists
+
+    print("Last 10 full rotation tics CW: %s" % all_cw)
+    print("Last 10 full rotation tics CCW: %s" % all_ccw)
     # Log delta between measured and configured values
     if direction.lower() == "cw":
         configured_tics = dome.encoder_tics_per_dome_revolution[dome.CW]
     else:
         configured_tics = dome.encoder_tics_per_dome_revolution[dome.CCW]
     delta = final_ticks - configured_tics
-    print("Configured tics for {}: {}".format(direction.upper(), configured_tics))
-    print("Delta (measured - configured): {}".format(delta))
+    print("Configured tics for %s: %s" % (direction.upper(), configured_tics))
+    print("Delta (measured - configured): %s" % delta)
     save_state(dome, "count_full_rotation")
 
 

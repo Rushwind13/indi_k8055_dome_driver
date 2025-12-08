@@ -57,30 +57,30 @@ def move_ticks(dome, direction, ticks, label, detect_home=False, print_interval=
     start_pos = dome.get_pos()
     start_ticks, _ = dome.counter_read()
     home_detected = False
-    last_print = start_ticks
     while True:
-        # Always fetch fresh telemetry
         encoder_ticks, _ = dome.counter_read()
         current_pos = dome.current_position()
-        if encoder_ticks - last_print >= print_interval or encoder_ticks == start_ticks:
+        # Print telemetry every time the dome passes a cardinal 45-degree point
+        cardinal = int(round(current_pos / 45.0)) * 45 % 360
+        # Only print if within 1 degree of
+        # the cardinal point to avoid missing due to rounding
+        if abs((current_pos - cardinal) % 360.0) < 1.0:
             telemetry(
-                label,
+                "{} @ {} deg".format(label, cardinal),
                 start_pos,
                 start_ticks,
                 current_pos,
                 encoder_ticks,
                 time.time() - t0,
             )
-            last_print = encoder_ticks
         if detect_home and dome.isHome():
             home_detected = True
             break
         if encoder_ticks >= ticks:
             break
-        time.sleep(0.1)  # Add small delay for hardware polling
+        time.sleep(0.1)
     dome.rotation_stop()
     time.sleep(1)
-    # Final telemetry after stopping
     final_pos = dome.current_position()
     final_ticks, _ = dome.counter_read()
     t1 = time.time()

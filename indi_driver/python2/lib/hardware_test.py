@@ -140,21 +140,24 @@ def count_full_rotation(direction):
     start_ticks, _ = dome.counter_read()
     safety_tics = 20  # Minimum tics before checking for home
     home_detected = False
-    last_print = start_ticks
     max_tics = 500  # Safety max
+    last_cardinal = None
     while True:
         encoder_ticks, _ = dome.counter_read()
         current_pos = dome.current_position()
-        if encoder_ticks - last_print >= 10 or encoder_ticks == start_ticks:
-            telemetry(
-                "Rotating",
-                start_pos,
-                start_ticks,
-                current_pos,
-                encoder_ticks,
-                time.time() - t0,
-            )
-            last_print = encoder_ticks
+        # Print telemetry every time the dome passes a cardinal 45-degree point
+        cardinal = int(round(current_pos / 45.0)) * 45 % 360
+        if abs((current_pos - cardinal) % 360.0) < 1.0:
+            if last_cardinal != cardinal:
+                telemetry(
+                    "Rotating @ {} deg".format(cardinal),
+                    start_pos,
+                    start_ticks,
+                    current_pos,
+                    encoder_ticks,
+                    time.time() - t0,
+                )
+                last_cardinal = cardinal
         if encoder_ticks >= safety_tics:
             if dome.isHome():
                 home_detected = True
@@ -175,6 +178,14 @@ def count_full_rotation(direction):
         print("Home not detected after full revolution!")
         abort()
     print("\nTotal tics for full revolution: {}".format(final_ticks))
+    # Log delta between measured and configured values
+    if direction.lower() == "cw":
+        configured_tics = dome.encoder_tics_per_dome_revolution[dome.CW]
+    else:
+        configured_tics = dome.encoder_tics_per_dome_revolution[dome.CCW]
+    delta = final_ticks - configured_tics
+    print("Configured tics for {}: {}".format(direction.upper(), configured_tics))
+    print("Delta (measured - configured): {}".format(delta))
     save_state(dome, "count_full_rotation")
 
 

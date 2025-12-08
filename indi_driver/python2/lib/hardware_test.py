@@ -212,7 +212,21 @@ def calibrate_home():
         )
         if not home_detected:
             abort()
-        final_ticks, _ = dome.counter_read()
+
+    # 6) Return to home using home(),
+    # count the starting and ending tics.
+    # If not the expected amount of tics, fail.
+    print("Returning to home position...")
+    start_ticks, _ = dome.counter_read()
+    t0 = time.time()
+    dome.home()
+    time.sleep(5)
+    t1 = time.time()
+    final_ticks, _ = dome.counter_read()
+    telemetry(
+        "Final Home", dome.get_pos(), start_ticks, dome.get_pos(), final_ticks, t1 - t0
+    )
+    if abs(final_ticks) > 2:
         print("Unexpected encoder ticks after homing: {}".format(final_ticks))
         abort()
     print("Home calibration successful.")

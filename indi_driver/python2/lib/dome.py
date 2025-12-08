@@ -14,6 +14,24 @@ from config import load_config
 
 
 class Dome:
+    def current_position(self):
+        """
+        Calculate current position based on
+        last known position, encoder ticks, and direction.
+        Does not reset encoder or update persistent state.
+        """
+        encoder_ticks, _ = self.counter_read()
+        delta_angle = (encoder_ticks * self.DEG_TO_TICKS) % 360.0
+        if self.dir == self.CW:
+            pos = (self.position + delta_angle) % 360.0
+        else:
+            pos = (self.position - delta_angle) % 360.0
+        # If home is sensed, set position to HOME_POS
+        # (for safety, but do not reset encoder)
+        if self.isHome():
+            pos = self.HOME_POS
+        return pos
+
     def __init__(self, config_file="dome_config.json"):
         print("Creating new Dome object")
         sys.stdout.flush()
@@ -309,19 +327,6 @@ class Dome:
 
     def get_pos(self):
         return self.position
-
-    def update_pos(self):
-        # Called when dome stops moving: update position and reset encoder
-        encoder_ticks, _ = self.counter_read()
-        delta_angle = (encoder_ticks * self.DEG_TO_TICKS) % 360.0
-        if self.dir == self.CW:
-            new_pos = (self.get_pos() + delta_angle) % 360.0
-        else:
-            new_pos = (self.get_pos() - delta_angle) % 360.0
-        # If home is sensed, set position to HOME_POS
-        if self.isHome():
-            new_pos = self.HOME_POS
-        self.set_pos(new_pos, reset_encoder=True)
 
     # Reset the tick counters to 0 when you reach target position
     def set_pos(self, in_pos, reset_encoder=False):

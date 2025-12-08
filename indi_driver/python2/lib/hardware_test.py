@@ -60,8 +60,8 @@ def move_ticks(dome, direction, ticks, label, detect_home=False, print_interval=
     last_print = start_ticks
     while True:
         # Always fetch fresh telemetry
-        current_pos = dome.get_pos()
         encoder_ticks, _ = dome.counter_read()
+        current_pos = dome.current_position()
         if encoder_ticks - last_print >= print_interval or encoder_ticks == start_ticks:
             telemetry(
                 label,
@@ -74,13 +74,14 @@ def move_ticks(dome, direction, ticks, label, detect_home=False, print_interval=
             last_print = encoder_ticks
         if detect_home and dome.isHome():
             home_detected = True
+            break
         if encoder_ticks >= ticks:
             break
         time.sleep(0.1)  # Add small delay for hardware polling
     dome.rotation_stop()
     time.sleep(1)
     # Final telemetry after stopping
-    final_pos = dome.get_pos()
+    final_pos = dome.current_position()
     final_ticks, _ = dome.counter_read()
     t1 = time.time()
     telemetry(

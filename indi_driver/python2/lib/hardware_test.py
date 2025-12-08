@@ -111,16 +111,16 @@ def calibrate_home():
     last_home = False
     transitions = []
     while True:
-        current_ticks, _ = dome.counter_read()
+        current_pos = dome.get_pos()
         is_home = dome.isHome()
         if is_home and not last_home:
-            home_zone_start = current_ticks
-            transitions.append((current_ticks, "enter"))
+            home_zone_start = current_pos
+            transitions.append((current_pos, "enter"))
         if not is_home and last_home:
-            home_zone_end = current_ticks
-            transitions.append((current_ticks, "exit"))
+            home_zone_end = current_pos
+            transitions.append((current_pos, "exit"))
         last_home = is_home
-        sys.stdout.write("\r  CW home: {} tick: {}".format(is_home, current_ticks))
+        sys.stdout.write("\r  CW home: {} pos: {:.2f}".format(is_home, current_pos))
         sys.stdout.flush()
         # Stop after passing through home zone and exiting
         if home_zone_start is not None and home_zone_end is not None:
@@ -137,16 +137,16 @@ def calibrate_home():
     last_home = False
     transitions_ccw = []
     while True:
-        current_ticks, _ = dome.counter_read()
+        current_pos = dome.get_pos()
         is_home = dome.isHome()
         if is_home and not last_home:
-            home_zone_start_ccw = current_ticks
-            transitions_ccw.append((current_ticks, "enter"))
+            home_zone_start_ccw = current_pos
+            transitions_ccw.append((current_pos, "enter"))
         if not is_home and last_home:
-            home_zone_end_ccw = current_ticks
-            transitions_ccw.append((current_ticks, "exit"))
+            home_zone_end_ccw = current_pos
+            transitions_ccw.append((current_pos, "exit"))
         last_home = is_home
-        sys.stdout.write("\r  CCW home: {} tick: {}".format(is_home, current_ticks))
+        sys.stdout.write("\r  CCW home: {} pos: {:.2f}".format(is_home, current_pos))
         sys.stdout.flush()
         # Stop after passing through home zone and exiting
         if home_zone_start_ccw is not None and home_zone_end_ccw is not None:
@@ -161,7 +161,7 @@ def calibrate_home():
         width_cw = abs(home_zone_end - home_zone_start)
         center_cw = (home_zone_start + home_zone_end) / 2.0
         print(
-            "CW sweep: Home zone width: {} tics, center: {:.1f}".format(
+            "CW sweep: Home zone width: {:.2f} deg, center: {:.2f} deg".format(
                 width_cw, center_cw
             )
         )
@@ -173,7 +173,7 @@ def calibrate_home():
         width_ccw = abs(home_zone_end_ccw - home_zone_start_ccw)
         center_ccw = (home_zone_start_ccw + home_zone_end_ccw) / 2.0
         print(
-            "CCW sweep: Home zone width: {} tics, center: {:.1f}".format(
+            "CCW sweep: Home zone width: {:.2f} deg, center: {:.2f} deg".format(
                 width_ccw, center_ccw
             )
         )
@@ -185,35 +185,16 @@ def calibrate_home():
     # Move dome to average center of both sweeps if possible
     print("\nMoving dome to center of home zone...")
 
-    def ticks_to_degrees(ticks):
-        # Use tick-to-degree conversion from config
-        return dome.HOME_POS + (ticks * dome.DEG_TO_TICKS)
-
     if center_cw is not None and center_ccw is not None:
         final_center = (center_cw + center_ccw) / 2.0
-        target_degrees = ticks_to_degrees(final_center)
-        print(
-            "Moving to center: {:.1f} tics -> {:.2f} deg".format(
-                final_center, target_degrees
-            )
-        )
-        dome.rotation(target_degrees)
+        print("Moving to center: {:.2f} deg".format(final_center))
+        dome.rotation(final_center)
     elif center_cw is not None:
-        target_degrees = ticks_to_degrees(center_cw)
-        print(
-            "Moving to CW center: {:.1f} tics -> {:.2f} deg".format(
-                center_cw, target_degrees
-            )
-        )
-        dome.rotation(target_degrees)
+        print("Moving to CW center: {:.2f} deg".format(center_cw))
+        dome.rotation(center_cw)
     elif center_ccw is not None:
-        target_degrees = ticks_to_degrees(-center_ccw)
-        print(
-            "Moving to CCW center: {:.1f} tics -> {:.2f} deg".format(
-                center_ccw, target_degrees
-            )
-        )
-        dome.rotation(target_degrees)
+        print("Moving to CCW center: {:.2f} deg".format(center_ccw))
+        dome.rotation(center_ccw)
     else:
         print("Could not determine home zone center; using home().")
         dome.home()

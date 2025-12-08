@@ -328,6 +328,19 @@ class Dome:
     def get_pos(self):
         return self.position
 
+    def update_pos(self):
+        # Called when dome stops moving: update position and reset encoder
+        encoder_ticks, _ = self.counter_read()
+        delta_angle = (encoder_ticks * self.DEG_TO_TICKS) % 360.0
+        if self.dir == self.CW:
+            new_pos = (self.get_pos() + delta_angle) % 360.0
+        else:
+            new_pos = (self.get_pos() - delta_angle) % 360.0
+        # If home is sensed, set position to HOME_POS
+        if self.isHome():
+            new_pos = self.HOME_POS
+        self.set_pos(new_pos, reset_encoder=True)
+
     # Reset the tick counters to 0 when you reach target position
     def set_pos(self, in_pos, reset_encoder=False):
         encoder_ticks, _ = self.counter_read()

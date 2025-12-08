@@ -82,126 +82,177 @@ def count_full_rotation(direction):
 
 
 def calibrate_home():
-    """
-    Calibrate home position by sweeping past home in both directions, then centering
-    """
+    import subprocess
+
     dome = Dome()
     restore_state(dome)
-    print("Calibrating home position...")
-    # Move dome away from home to ensure physical movement
-    print("Moving dome away from home position before calibration...")
-    if dome.isHome():
-        dome.ccw()
-        away_ticks = 40  # Move ~45 degrees away
-        moved = 0
-        while moved < away_ticks:
-            current_ticks, _ = dome.counter_read()
-            moved = abs(current_ticks)
-            sys.stdout.write("\r  Moving away: {} tics".format(moved))
-            sys.stdout.flush()
-        dome.rotation_stop()
-        time.sleep(2)
-        print("Dome moved away from home.")
 
-    # Sweep CW past home and record all transitions
-    print("Sweeping CW past home and recording transitions...")
-    dome.cw()
-    home_zone_start = None
-    home_zone_end = None
-    last_home = False
-    transitions = []
-    while True:
-        current_pos = dome.get_pos()
-        is_home = dome.isHome()
-        if is_home and not last_home:
-            home_zone_start = current_pos
-            transitions.append((current_pos, "enter"))
-        if not is_home and last_home:
-            home_zone_end = current_pos
-            transitions.append((current_pos, "exit"))
-        last_home = is_home
-        sys.stdout.write("\r  CW home: {} pos: {:.2f}".format(is_home, current_pos))
-        sys.stdout.flush()
-        # Stop after passing through home zone and exiting
-        if home_zone_start is not None and home_zone_end is not None:
-            break
-    dome.rotation_stop()
-    save_state(dome, "calibrate_home_cw")
+    def abort():
+        print("Calibration failed. Aborting...")
+        subprocess.call(
+            [
+                sys.executable,
+                os.path.join(os.path.dirname(__file__), "../scripts/abort.py"),
+            ]
+        )
+        sys.exit(1)
+
+    def telemetry(stage, start_pos, start_ticks, end_pos, end_ticks, elapsed):
+        print(
+            "{}: Start pos={:.2f}deg, "
+            "Start tics={}, End pos={:.2f}deg, "
+            "End tics={}, Elapsed={:.2f}s".format(
+                stage, start_pos, start_ticks, end_pos, end_ticks, elapsed
+            )
+        )
+
+    # 1) Move to home first. If can't get there, fail.
+    print("Moving to home position...")
+    t0 = time.time()
+    dome.home()
     time.sleep(5)
+    if not dome.isHome():
+        abort()
+    t1 = time.time()
+    start_pos = dome.get_pos()
+    start_ticks, _ = dome.counter_read()
+    telemetry(
+        "Home", start_pos, start_ticks, dome.get_pos(), dome.counter_read()[0], t1 - t0
+    )
 
-    # Sweep CCW past home and record all transitions
-    print("\nSweeping CCW past home and recording transitions...")
+    # 2) Move a small distance (10 tics) away from home in CCW direction
+    print("Moving 10 tics CCW away from home...")
     dome.ccw()
-    home_zone_start_ccw = None
-    home_zone_end_ccw = None
-    last_home = False
-    transitions_ccw = []
+    t0 = time.time()
+    start_pos = dome.get_pos()
+    start_ticks, _ = dome.counter_read()
     while True:
-        current_pos = dome.get_pos()
-        is_home = dome.isHome()
-        if is_home and not last_home:
-            home_zone_start_ccw = current_pos
-            transitions_ccw.append((current_pos, "enter"))
-        if not is_home and last_home:
-            home_zone_end_ccw = current_pos
-            transitions_ccw.append((current_pos, "exit"))
-        last_home = is_home
-        sys.stdout.write("\r  CCW home: {} pos: {:.2f}".format(is_home, current_pos))
-        sys.stdout.flush()
-        # Stop after passing through home zone and exiting
-        if home_zone_start_ccw is not None and home_zone_end_ccw is not None:
+        encoder_ticks, _ = dome.counter_read()
+        if encoder_ticks >= 10:
             break
     dome.rotation_stop()
-    save_state(dome, "calibrate_home_ccw")
     time.sleep(5)
+    t1 = time.time()
+    telemetry(
+        "CCW Away", start_pos, start_ticks, dome.get_pos(), encoder_ticks, t1 - t0
+    )
 
-    # Calculate home zone width and center
-    print("\nCalculating home zone width and center...")
-    if home_zone_start is not None and home_zone_end is not None:
-        width_cw = abs(home_zone_end - home_zone_start)
-        center_cw = (home_zone_start + home_zone_end) / 2.0
-        print(
-            "CW sweep: Home zone width: {:.2f} deg, center: {:.2f} deg".format(
-                width_cw, center_cw
-            )
+    # 3) Sweep through home CW (20 tics at least), detect home. If not detected, fail.
+    print("Sweeping CW through home (20 tics)...")
+    dome.cw()
+    t0 = time.time()
+    start_pos = dome.get_pos()
+    start_ticks, _ = dome.counter_read()
+    home_detected = False
+    while True:
+        encoder_ticks, _ = dome.counter_read()
+        if dome.isHome():
+            home_detected = True
+        if encoder_ticks >= 20:
+            break
+    dome.rotation_stop()
+    time.sleep(5)
+    t1 = time.time()
+    telemetry(
+        "CW Sweep", start_pos, start_ticks, dome.get_pos(), encoder_ticks, t1 - t0
+    )
+    if not home_detected:
+        abort()
+
+    # 4) Sweep through home CCW (20 tics), detect home. If not detected, fail.
+    print("Sweeping CCW through home (20 tics)...")
+    dome.ccw()
+    t0 = time.time()
+    start_pos = dome.get_pos()
+    start_ticks, _ = dome.counter_read()
+    home_detected = False
+    while True:
+        encoder_ticks, _ = dome.counter_read()
+        if dome.isHome():
+            home_detected = True
+        if encoder_ticks >= 20:
+            break
+    dome.rotation_stop()
+    time.sleep(5)
+    t1 = time.time()
+    telemetry(
+        "CCW Sweep", start_pos, start_ticks, dome.get_pos(), encoder_ticks, t1 - t0
+    )
+    if not home_detected:
+        abort()
+
+    # 5) Repeat steps 4 and 5 two more times.
+    for i in range(2):
+        print("Repeat CW sweep {}...".format(i + 2))
+        dome.cw()
+        t0 = time.time()
+        start_pos = dome.get_pos()
+        start_ticks, _ = dome.counter_read()
+        home_detected = False
+        while True:
+            encoder_ticks, _ = dome.counter_read()
+            if dome.isHome():
+                home_detected = True
+            if encoder_ticks >= 20:
+                break
+        dome.rotation_stop()
+        time.sleep(5)
+        t1 = time.time()
+        telemetry(
+            "CW Sweep {}".format(i + 2),
+            start_pos,
+            start_ticks,
+            dome.get_pos(),
+            encoder_ticks,
+            t1 - t0,
         )
-    else:
-        print("CW sweep: Could not determine home zone width.")
-        width_cw = None
-        center_cw = None
-    if home_zone_start_ccw is not None and home_zone_end_ccw is not None:
-        width_ccw = abs(home_zone_end_ccw - home_zone_start_ccw)
-        center_ccw = (home_zone_start_ccw + home_zone_end_ccw) / 2.0
-        print(
-            "CCW sweep: Home zone width: {:.2f} deg, center: {:.2f} deg".format(
-                width_ccw, center_ccw
-            )
+        if not home_detected:
+            abort()
+
+        print("Repeat CCW sweep {}...".format(i + 2))
+        dome.ccw()
+        t0 = time.time()
+        start_pos = dome.get_pos()
+        start_ticks, _ = dome.counter_read()
+        home_detected = False
+        while True:
+            encoder_ticks, _ = dome.counter_read()
+            if dome.isHome():
+                home_detected = True
+            if encoder_ticks >= 20:
+                break
+        dome.rotation_stop()
+        time.sleep(5)
+        t1 = time.time()
+        telemetry(
+            "CCW Sweep {}".format(i + 2),
+            start_pos,
+            start_ticks,
+            dome.get_pos(),
+            encoder_ticks,
+            t1 - t0,
         )
-    else:
-        print("CCW sweep: Could not determine home zone width.")
-        width_ccw = None
-        center_ccw = None
+        if not home_detected:
+            abort()
 
-    # Move dome to average center of both sweeps if possible
-    print("\nMoving dome to center of home zone...")
-
-    if center_cw is not None and center_ccw is not None:
-        final_center = (center_cw + center_ccw) / 2.0
-        print("Moving to center: {:.2f} deg".format(final_center))
-        dome.rotation(final_center)
-    elif center_cw is not None:
-        print("Moving to CW center: {:.2f} deg".format(center_cw))
-        dome.rotation(center_cw)
-    elif center_ccw is not None:
-        print("Moving to CCW center: {:.2f} deg".format(center_ccw))
-        dome.rotation(center_ccw)
-    else:
-        print("Could not determine home zone center; using home().")
-        dome.home()
-    save_state(dome, "calibrate_home_centered")
-    print("\nHome position calibration complete.")
-    print("CW transitions: {}".format(transitions))
-    print("CCW transitions: {}".format(transitions_ccw))
+    # 6) Return to home using home(),
+    # count the starting and ending tics.
+    # If not the expected amount of tics, fail.
+    print("Returning to home position...")
+    start_ticks, _ = dome.counter_read()
+    t0 = time.time()
+    dome.home()
+    time.sleep(5)
+    t1 = time.time()
+    end_ticks, _ = dome.counter_read()
+    telemetry(
+        "Final Home", dome.get_pos(), start_ticks, dome.get_pos(), end_ticks, t1 - t0
+    )
+    # Check if encoder ticks are as expected (should be near zero)
+    if abs(end_ticks) > 2:
+        print("Unexpected encoder ticks after homing: {}".format(end_ticks))
+        abort()
+    print("Home calibration successful.")
 
 
 def main():

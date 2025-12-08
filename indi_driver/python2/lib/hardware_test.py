@@ -103,41 +103,104 @@ def calibrate_home():
         time.sleep(2)
         print("Dome moved away from home.")
 
-    # Sweep CW past home
-    print("Sweeping CW past home...")
+    # Sweep CW past home and record all transitions
+    print("Sweeping CW past home and recording transitions...")
     dome.cw()
+    home_zone_start = None
+    home_zone_end = None
+    last_home = False
+    transitions = []
     while True:
         current_ticks, _ = dome.counter_read()
-        if dome.isHome():
-            sys.stdout.write("\r  CW home detected: True")
-            sys.stdout.flush()
-            break
-        sys.stdout.write("\r  CW home detected: False")
+        is_home = dome.isHome()
+        if is_home and not last_home:
+            home_zone_start = current_ticks
+            transitions.append((current_ticks, "enter"))
+        if not is_home and last_home:
+            home_zone_end = current_ticks
+            transitions.append((current_ticks, "exit"))
+        last_home = is_home
+        sys.stdout.write("\r  CW home: {} tick: {}".format(is_home, current_ticks))
         sys.stdout.flush()
+        # Stop after passing through home zone and exiting
+        if home_zone_start is not None and home_zone_end is not None:
+            break
     dome.rotation_stop()
     save_state(dome, "calibrate_home_cw")
-    time.sleep(5)  # Pause between dome moves
-    # Sweep CCW past home
-    print("\nSweeping CCW past home...")
+    time.sleep(5)
+
+    # Sweep CCW past home and record all transitions
+    print("\nSweeping CCW past home and recording transitions...")
     dome.ccw()
+    home_zone_start_ccw = None
+    home_zone_end_ccw = None
+    last_home = False
+    transitions_ccw = []
     while True:
         current_ticks, _ = dome.counter_read()
-        if dome.isHome():
-            sys.stdout.write("\r  CCW home detected: True")
-            sys.stdout.flush()
-            break
-        sys.stdout.write("\r  CCW home detected: False")
+        is_home = dome.isHome()
+        if is_home and not last_home:
+            home_zone_start_ccw = current_ticks
+            transitions_ccw.append((current_ticks, "enter"))
+        if not is_home and last_home:
+            home_zone_end_ccw = current_ticks
+            transitions_ccw.append((current_ticks, "exit"))
+        last_home = is_home
+        sys.stdout.write("\r  CCW home: {} tick: {}".format(is_home, current_ticks))
         sys.stdout.flush()
+        # Stop after passing through home zone and exiting
+        if home_zone_start_ccw is not None and home_zone_end_ccw is not None:
+            break
     dome.rotation_stop()
     save_state(dome, "calibrate_home_ccw")
-    time.sleep(5)  # Pause between dome moves
-    # Move to center position (average of detected positions)
-    print("\nCentering on home position...")
-    # Always use the reliable home logic after calibration sweeps
-    print("\nFinal homing using park.py logic...")
-    dome.home()
+    time.sleep(5)
+
+    # Calculate home zone width and center
+    print("\nCalculating home zone width and center...")
+    if home_zone_start is not None and home_zone_end is not None:
+        width_cw = abs(home_zone_end - home_zone_start)
+        center_cw = (home_zone_start + home_zone_end) / 2.0
+        print(
+            "CW sweep: Home zone width: {} tics, center: {:.1f}".format(
+                width_cw, center_cw
+            )
+        )
+    else:
+        print("CW sweep: Could not determine home zone width.")
+        width_cw = None
+        center_cw = None
+    if home_zone_start_ccw is not None and home_zone_end_ccw is not None:
+        width_ccw = abs(home_zone_end_ccw - home_zone_start_ccw)
+        center_ccw = (home_zone_start_ccw + home_zone_end_ccw) / 2.0
+        print(
+            "CCW sweep: Home zone width: {} tics, center: {:.1f}".format(
+                width_ccw, center_ccw
+            )
+        )
+    else:
+        print("CCW sweep: Could not determine home zone width.")
+        width_ccw = None
+        center_ccw = None
+
+    # Move dome to average center of both sweeps if possible
+    print("\nMoving dome to center of home zone...")
+    if center_cw is not None and center_ccw is not None:
+        final_center = (center_cw + center_ccw) / 2.0
+        print("Moving to tick position: {:.1f}".format(final_center))
+        dome.rotation(final_center)
+    elif center_cw is not None:
+        print("Moving to tick position (CW center): {:.1f}".format(center_cw))
+        dome.rotation(center_cw)
+    elif center_ccw is not None:
+        print("Moving to tick position (CCW center): {:.1f}".format(center_ccw))
+        dome.rotation(center_ccw)
+    else:
+        print("Could not determine home zone center; using home().")
+        dome.home()
     save_state(dome, "calibrate_home_centered")
-    print("Home position calibration complete.")
+    print("\nHome position calibration complete.")
+    print("CW transitions: {}".format(transitions))
+    print("CCW transitions: {}".format(transitions_ccw))
 
 
 def main():

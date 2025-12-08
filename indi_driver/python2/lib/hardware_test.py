@@ -89,7 +89,13 @@ def move_ticks(dome, direction, ticks, label, detect_home=False, print_interval=
     time.sleep(1)
     t1 = time.time()
     telemetry(
-        label + " (final)", start_pos, start_ticks, final_pos, final_ticks, t1 - t0
+        label + " (final)",
+        start_pos,
+        start_ticks,
+        final_pos,
+        final_ticks,
+        t1 - last_cardinal_time,
+        t1 - t0,
     )
     return home_detected, encoder_ticks
 
@@ -175,7 +181,13 @@ def count_full_rotation(direction):
     time.sleep(1)
     t1 = time.time()
     telemetry(
-        "Rotating (final)", start_pos, start_ticks, final_pos, final_ticks, t1 - t0
+        "Rotating (final)",
+        start_pos,
+        start_ticks,
+        final_pos,
+        final_ticks,
+        t1 - last_cardinal_time,
+        t1 - t0,
     )
     if not home_detected:
         print("Home not detected after full revolution!")
@@ -211,7 +223,13 @@ def calibrate_home():
     start_pos = dome.get_pos()
     start_ticks, _ = dome.counter_read()
     telemetry(
-        "Home", start_pos, start_ticks, dome.get_pos(), dome.counter_read()[0], t1 - t0
+        "Home",
+        start_pos,
+        start_ticks,
+        dome.get_pos(),
+        dome.counter_read()[0],
+        t1 - t0,
+        t1 - t0,
     )
 
     # 2) Move 20 tics CCW away from home
@@ -256,7 +274,13 @@ def calibrate_home():
     t1 = time.time()
     final_ticks, _ = dome.counter_read()
     telemetry(
-        "Final Home", dome.get_pos(), start_ticks, dome.get_pos(), final_ticks, t1 - t0
+        "Final Home",
+        dome.get_pos(),
+        start_ticks,
+        dome.get_pos(),
+        final_ticks,
+        t1 - t0,
+        t1 - t0,
     )
     if abs(final_ticks) > 2:
         print("Unexpected encoder ticks after homing: {}".format(final_ticks))

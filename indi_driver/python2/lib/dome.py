@@ -303,7 +303,7 @@ class Dome:
 
         if azimuth == start_pos:
             print("Dome already at requested azimuth: {:.1f}".format(azimuth))
-            return True
+            return self.get_pos(), 0
 
         # Set direction based on amount sign and current direction preference
         distance = self._set_optimal_goto_direction(start_pos, azimuth)
@@ -323,7 +323,7 @@ class Dome:
         # Start rotation
         if not self._rotation_start():
             print("ERROR: Could not start rotation")
-            return False
+            return self.get_pos(), 0
 
         if home:
             print("Homing to position {:.1f}...".format(azimuth))
@@ -347,10 +347,10 @@ class Dome:
                 time.sleep(self.POLL)
 
         # Stop rotation when target reached
-        final_pos, _ = self.rotation_stop()
+        final_pos, final_tics = self.rotation_stop()
 
         print("Rotation completed. Final position: {:.1f}".format(final_pos))
-        return True
+        return final_pos, final_tics
 
     def get_pos(self):
         return self.position

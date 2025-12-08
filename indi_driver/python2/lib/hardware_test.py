@@ -121,16 +121,14 @@ def count_full_rotation(direction):
     # Move to home position first
     print("Moving to home position...")
     t0 = time.time()
-    dome.home()
+    start_pos, start_ticks = dome.home()
     time.sleep(5)
     if not dome.isHome():
         abort()
     t1 = time.time()
-    start_pos = dome.get_pos()
-    start_ticks, _ = dome.counter_read()
-    telemetry(
-        "Home", start_pos, start_ticks, dome.get_pos(), dome.counter_read()[0], t1 - t0
-    )
+    cur_pos = dome.get_pos()
+    cur_ticks, _ = dome.counter_read()
+    telemetry("Home", start_pos, start_ticks, cur_pos, cur_ticks, t1 - t0, t1 - t0)
     save_state(dome, "count_full_rotation_home")
 
     # Start rotation and ignore home until safety tics have elapsed

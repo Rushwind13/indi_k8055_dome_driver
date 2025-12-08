@@ -30,7 +30,7 @@ SEGMENT_TICS = [39, 39, 39, 40, 39, 39, 39, 40]
 
 # --- Config helpers ---
 def _dome_config(section, key, value=None, append=False, maxlen=None):
-    config_path = os.path.join(os.path.dirname(__file__), "../dome_config.json")
+    config_path = os.path.join(os.path.dirname(__file__), "../../dome_config.json")
     with open(config_path, "r") as f:
         config = json.load(f)
         updated = False

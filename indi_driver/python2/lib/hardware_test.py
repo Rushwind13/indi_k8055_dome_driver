@@ -12,6 +12,7 @@ Usage:
     python hardware_test.py count_full_rotation [cw|ccw]
     python hardware_test.py calibrate_home
 """
+
 import os
 import sys
 import time
@@ -26,6 +27,60 @@ sys.path.insert(
 SEGMENT_TICS = [39, 39, 39, 40, 39, 39, 39, 40]
 
 
+# --- Shared helpers ---
+def abort():
+    print("Test failed. Aborting...")
+    import subprocess
+
+    subprocess.call(
+        [sys.executable, os.path.join(os.path.dirname(__file__), "../scripts/abort.py")]
+    )
+    sys.exit(1)
+
+
+def telemetry(stage, start_pos, start_ticks, end_pos, end_ticks, elapsed):
+    print(
+        "{}: Start pos={:.2f}deg, "
+        "Start tics={}, End pos={:.2f}deg, "
+        "End tics={}, Elapsed={:.2f}s".format(
+            stage, start_pos, start_ticks, end_pos, end_ticks, elapsed
+        )
+    )
+
+
+def move_ticks(dome, direction, ticks, label, detect_home=False, print_interval=10):
+    if direction == "cw":
+        dome.cw()
+    else:
+        dome.ccw()
+    t0 = time.time()
+    start_pos = dome.get_pos()
+    start_ticks, _ = dome.counter_read()
+    home_detected = False
+    last_print = 0
+    while True:
+        encoder_ticks, _ = dome.counter_read()
+        if encoder_ticks - last_print >= print_interval:
+            telemetry(
+                label,
+                start_pos,
+                start_ticks,
+                dome.get_pos(),
+                encoder_ticks,
+                time.time() - t0,
+            )
+            last_print = encoder_ticks
+        if detect_home and dome.isHome():
+            home_detected = True
+        if encoder_ticks >= ticks:
+            break
+    dome.rotation_stop()
+    time.sleep(5)
+    t1 = time.time()
+    telemetry(label, start_pos, start_ticks, dome.get_pos(), encoder_ticks, t1 - t0)
+    return home_detected, encoder_ticks
+
+
 def rotate_segments():
     """
     Rotate dome one full revolution in 8 segments (45 deg each)
@@ -35,17 +90,9 @@ def rotate_segments():
     print("Starting segmented rotation test...")
     for i, tics in enumerate(SEGMENT_TICS):
         print("Segment {}: Rotating {} tics".format(i + 1, tics))
-        dome.cw()  # Set direction to CW and start rotation
-        moved = 0
-        while moved < tics:
-            current_ticks, _ = dome.counter_read()
-            moved = current_ticks  # Should always start at zero
-            sys.stdout.write("\r  Tics moved: {}".format(moved))
-            sys.stdout.flush()
-        dome.rotation_stop()
+        move_ticks(dome, "cw", tics, "Segment {}".format(i + 1), detect_home=False)
         print("  Done.")
         save_state(dome, "rotate_segments")
-        time.sleep(5)  # Pause between segments
     print("Full segmented rotation complete.")
 
 
@@ -60,24 +107,32 @@ def count_full_rotation(direction):
     )
     # Move to home position first
     print("Moving to home position...")
+    t0 = time.time()
     dome.home()
-    time.sleep(5)  # Pause between dome moves
+    time.sleep(5)
+    if not dome.isHome():
+        abort()
+    t1 = time.time()
+    start_pos = dome.get_pos()
+    start_ticks, _ = dome.counter_read()
+    telemetry(
+        "Home", start_pos, start_ticks, dome.get_pos(), dome.counter_read()[0], t1 - t0
+    )
     save_state(dome, "count_full_rotation_home")
-    if direction.lower() == "cw":
-        dome.cw()
-    else:
-        dome.ccw()
+
     print("Starting rotation...")
-    moved = 0
-    while True:
-        current_ticks, _ = dome.counter_read()
-        moved = abs(current_ticks)  # Should always start at zero
-        sys.stdout.write("\r  Tics moved: {}".format(moved))
-        sys.stdout.flush()
-        if dome.isHome() and moved > 10:
-            break
-    dome.rotation_stop()
-    print("\nTotal tics for full revolution: {}".format(moved))
+    home_detected, encoder_ticks = move_ticks(
+        dome,
+        direction.lower(),
+        2000,  # safety max
+        "Rotating",
+        detect_home=True,
+        print_interval=10,
+    )
+    if not home_detected or encoder_ticks <= 10:
+        print("Home not detected after full revolution!")
+        abort()
+    print("\nTotal tics for full revolution: {}".format(encoder_ticks))
     save_state(dome, "count_full_rotation")
 
 
@@ -109,6 +164,13 @@ def calibrate_home():
     # 1) Move to home first. If can't get there, fail.
     print("Moving to home position...")
     t0 = time.time()
+
+    dome = Dome()
+    restore_state(dome)
+
+    # 1) Move to home first. If can't get there, fail.
+    print("Moving to home position...")
+    t0 = time.time()
     dome.home()
     time.sleep(5)
     if not dome.isHome():
@@ -120,137 +182,38 @@ def calibrate_home():
         "Home", start_pos, start_ticks, dome.get_pos(), dome.counter_read()[0], t1 - t0
     )
 
-    # 2) Move a small distance (10 tics) away from home in CCW direction
+    # 2) Move 20 tics CCW away from home
     print("Moving 20 tics CCW away from home...")
-    dome.ccw()
-    t0 = time.time()
-    start_pos = dome.get_pos()
-    start_ticks, _ = dome.counter_read()
-    while True:
-        encoder_ticks, _ = dome.counter_read()
-        if encoder_ticks >= 20:
-            break
-    dome.rotation_stop()
-    time.sleep(5)
-    t1 = time.time()
-    telemetry(
-        "CCW Away", start_pos, start_ticks, dome.get_pos(), encoder_ticks, t1 - t0
-    )
+    move_ticks(dome, "ccw", 20, "CCW Away", detect_home=False)
 
-    # 3) Sweep through home CW (20 tics at least), detect home. If not detected, fail.
+    # 3) Sweep through home CW (40 tics), detect home. If not detected, fail.
     print("Sweeping CW through home (40 tics)...")
-    dome.cw()
-    t0 = time.time()
-    start_pos = dome.get_pos()
-    start_ticks, _ = dome.counter_read()
-    home_detected = False
-    while True:
-        encoder_ticks, _ = dome.counter_read()
-        if dome.isHome():
-            home_detected = True
-        if encoder_ticks >= 40:
-            break
-    dome.rotation_stop()
-    time.sleep(5)
-    t1 = time.time()
-    telemetry(
-        "CW Sweep", start_pos, start_ticks, dome.get_pos(), encoder_ticks, t1 - t0
-    )
+    home_detected, _ = move_ticks(dome, "cw", 40, "CW Sweep", detect_home=True)
     if not home_detected:
         abort()
 
-        # 4) Sweep through home CCW (20 tics), detect home. If not detected, fail.
-        print("Sweeping CCW through home (40 tics)...")
-    dome.ccw()
-    t0 = time.time()
-    start_pos = dome.get_pos()
-    start_ticks, _ = dome.counter_read()
-    home_detected = False
-    while True:
-        encoder_ticks, _ = dome.counter_read()
-        if dome.isHome():
-            home_detected = True
-        if encoder_ticks >= 40:
-            break
-    dome.rotation_stop()
-    time.sleep(5)
-    t1 = time.time()
-    telemetry(
-        "CCW Sweep", start_pos, start_ticks, dome.get_pos(), encoder_ticks, t1 - t0
-    )
+    # 4) Sweep through home CCW (40 tics), detect home. If not detected, fail.
+    print("Sweeping CCW through home (40 tics)...")
+    home_detected, _ = move_ticks(dome, "ccw", 40, "CCW Sweep", detect_home=True)
     if not home_detected:
         abort()
 
-    # 5) Repeat steps 4 and 5 two more times.
+    # 5) Repeat sweeps two more times
     for i in range(2):
         print("Repeat CW sweep {}...".format(i + 2))
-        dome.cw()
-        t0 = time.time()
-        start_pos = dome.get_pos()
-        start_ticks, _ = dome.counter_read()
-        home_detected = False
-        while True:
-            encoder_ticks, _ = dome.counter_read()
-            if dome.isHome():
-                home_detected = True
-            if encoder_ticks >= 40:
-                break
-        dome.rotation_stop()
-        time.sleep(5)
-        t1 = time.time()
-        telemetry(
-            "CW Sweep {}".format(i + 2),
-            start_pos,
-            start_ticks,
-            dome.get_pos(),
-            encoder_ticks,
-            t1 - t0,
+        home_detected, _ = move_ticks(
+            dome, "cw", 40, "CW Sweep {}".format(i + 2), detect_home=True
         )
         if not home_detected:
             abort()
-
         print("Repeat CCW sweep {}...".format(i + 2))
-        dome.ccw()
-        t0 = time.time()
-        start_pos = dome.get_pos()
-        start_ticks, _ = dome.counter_read()
-        home_detected = False
-        while True:
-            encoder_ticks, _ = dome.counter_read()
-            if dome.isHome():
-                home_detected = True
-            if encoder_ticks >= 40:
-                break
-        dome.rotation_stop()
-        time.sleep(5)
-        t1 = time.time()
-        telemetry(
-            "CCW Sweep {}".format(i + 2),
-            start_pos,
-            start_ticks,
-            dome.get_pos(),
-            encoder_ticks,
-            t1 - t0,
+        home_detected, _ = move_ticks(
+            dome, "ccw", 40, "CCW Sweep {}".format(i + 2), detect_home=True
         )
         if not home_detected:
             abort()
-
-    # 6) Return to home using home(),
-    # count the starting and ending tics.
-    # If not the expected amount of tics, fail.
-    print("Returning to home position...")
-    start_ticks, _ = dome.counter_read()
-    t0 = time.time()
-    dome.home()
-    time.sleep(5)
-    t1 = time.time()
-    end_ticks, _ = dome.counter_read()
-    telemetry(
-        "Final Home", dome.get_pos(), start_ticks, dome.get_pos(), end_ticks, t1 - t0
-    )
-    # Check if encoder ticks are as expected (should be near zero)
-    if abs(end_ticks) > 2:
-        print("Unexpected encoder ticks after homing: {}".format(end_ticks))
+        final_ticks, _ = dome.counter_read()
+        print("Unexpected encoder ticks after homing: {}".format(final_ticks))
         abort()
     print("Home calibration successful.")
 

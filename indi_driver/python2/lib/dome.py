@@ -327,14 +327,19 @@ class Dome:
     def set_pos(self, in_pos, reset_encoder=False):
         encoder_ticks, _ = self.counter_read()
         print(
-            "Encoder ticks: {}, Updated position: {:.1f}".format(encoder_ticks, in_pos)
+            "[DEBUG] Before reset: Encoder ticks: {}, Updated position: {:.1f}".format(
+                encoder_ticks, in_pos
+            )
         )
         # Only reset encoder when explicitly requested (e.g., at home position)
         if reset_encoder:
             self.encoder_reset()
+            encoder_ticks_after, _ = self.counter_read()
+            print("[DEBUG] After reset: Encoder ticks: {}".format(encoder_ticks_after))
         self.position = in_pos
 
     def encoder_reset(self):
+        print("[DEBUG] Resetting encoder (counter 1) to zero...")
         self.dome.counter_reset(1)
 
     def homes_reset(self):

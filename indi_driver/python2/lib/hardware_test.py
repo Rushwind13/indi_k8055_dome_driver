@@ -88,6 +88,21 @@ def calibrate_home():
     dome = Dome()
     restore_state(dome)
     print("Calibrating home position...")
+    # Move dome away from home to ensure physical movement
+    print("Moving dome away from home position before calibration...")
+    if dome.isHome():
+        dome.ccw()
+        away_ticks = 40  # Move ~45 degrees away
+        moved = 0
+        while moved < away_ticks:
+            current_ticks, _ = dome.counter_read()
+            moved = abs(current_ticks)
+            sys.stdout.write("\r  Moving away: {} tics".format(moved))
+            sys.stdout.flush()
+        dome.rotation_stop()
+        time.sleep(2)
+        print("Dome moved away from home.")
+
     # Sweep CW past home
     print("Sweeping CW past home...")
     dome.cw()

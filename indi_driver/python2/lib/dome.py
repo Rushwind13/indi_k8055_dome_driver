@@ -22,7 +22,7 @@ class Dome:
         if self.dir == self.CW:
             deg = float(tics) * self.degrees_per_tic_cw
         else:
-            deg = float(-tics) * self.degrees_per_tic_ccw
+            deg = float(tics) * self.degrees_per_tic_ccw
         return deg
 
     def tics(self, degrees):
@@ -45,7 +45,10 @@ class Dome:
         Does not reset encoder or update persistent state.
         """
         encoder_ticks, _ = self.counter_read()
-        pos = (self.position + self.degrees(encoder_ticks)) % 360.0
+        if self.dir == self.CW:
+            pos = (self.position + self.degrees(encoder_ticks)) % 360.0
+        else:
+            pos = (self.position - self.degrees(encoder_ticks)) % 360.0
         # If home is sensed, set position to HOME_POS
         # (for safety, but do not reset encoder)
         if self.isHome():

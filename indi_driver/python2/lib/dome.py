@@ -252,10 +252,10 @@ class Dome:
         self.dome.digital_off(self.DOME_DIR)
 
         # Update state
-        self.update_pos()
+        pos, tics = self.update_pos()
         self.is_turning = False
         print("Dome rotation stopped.")
-        return True
+        return pos, tics
 
     def home(self):
         """
@@ -336,18 +336,16 @@ class Dome:
             print("Rotating to azimuth {:.1f}...".format(azimuth))
             sys.stdout.flush()
             encoder_ticks = 0
-            target_ticks_tuple = self.tics(distance)
-            target_ticks = target_ticks_tuple[0]
+            tics, _ = self.tics(distance)  # also returns error
+            target_ticks = tics
             while encoder_ticks < target_ticks:
-                encoder_ticks_tuple = self.counter_read()
-                encoder_ticks = encoder_ticks_tuple[0]
+                encoder_ticks, _ = self.counter_read()  # also returns home count
                 # TODO: Add timeout watchdog
                 time.sleep(self.POLL)
 
         # Stop rotation when target reached
-        self.rotation_stop()
+        final_pos, _ = self.rotation_stop()
 
-        final_pos = self.get_pos()
         print("Rotation completed. Final position: {:.1f}".format(final_pos))
         return True
 
@@ -366,6 +364,7 @@ class Dome:
         if self.isHome():
             new_pos = self.HOME_POS
         self.set_pos(new_pos, reset_encoder=True)
+        return new_pos, encoder_ticks
 
     # Reset the tick counters to 0 when you reach target position
     def set_pos(self, in_pos, reset_encoder=False):

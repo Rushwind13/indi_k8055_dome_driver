@@ -64,7 +64,7 @@ def move_ticks(dome, direction, ticks, label, detect_home=False, print_interval=
         cardinal = int(round(current_pos / 45.0)) * 45 % 360
         # Only print if within 1 degree of
         # the cardinal point to avoid missing due to rounding
-        if abs((current_pos - cardinal) % 360.0) < 1.0:
+        if (current_pos - cardinal) % 360.0 < 1.0:
             telemetry(
                 "{} @ {} deg".format(label, cardinal),
                 start_pos,
@@ -79,10 +79,8 @@ def move_ticks(dome, direction, ticks, label, detect_home=False, print_interval=
         if encoder_ticks >= ticks:
             break
         time.sleep(0.1)
-    dome.rotation_stop()
+    final_pos, final_ticks = dome.rotation_stop()
     time.sleep(1)
-    final_pos = dome.current_position()
-    final_ticks, _ = dome.counter_read()
     t1 = time.time()
     telemetry(
         label + " (final)", start_pos, start_ticks, final_pos, final_ticks, t1 - t0
@@ -166,10 +164,8 @@ def count_full_rotation(direction):
             print("Safety max tics reached, aborting!")
             break
         time.sleep(0.1)
-    dome.rotation_stop()
+    final_pos, final_ticks = dome.rotation_stop()
     time.sleep(1)
-    final_pos = dome.current_position()
-    final_ticks, _ = dome.counter_read()
     t1 = time.time()
     telemetry(
         "Rotating (final)", start_pos, start_ticks, final_pos, final_ticks, t1 - t0

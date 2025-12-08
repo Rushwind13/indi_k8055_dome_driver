@@ -121,14 +121,14 @@ def calibrate_home():
     )
 
     # 2) Move a small distance (10 tics) away from home in CCW direction
-    print("Moving 10 tics CCW away from home...")
+    print("Moving 20 tics CCW away from home...")
     dome.ccw()
     t0 = time.time()
     start_pos = dome.get_pos()
     start_ticks, _ = dome.counter_read()
     while True:
         encoder_ticks, _ = dome.counter_read()
-        if encoder_ticks >= 10:
+        if encoder_ticks >= 20:
             break
     dome.rotation_stop()
     time.sleep(5)
@@ -138,7 +138,7 @@ def calibrate_home():
     )
 
     # 3) Sweep through home CW (20 tics at least), detect home. If not detected, fail.
-    print("Sweeping CW through home (20 tics)...")
+    print("Sweeping CW through home (40 tics)...")
     dome.cw()
     t0 = time.time()
     start_pos = dome.get_pos()
@@ -148,7 +148,7 @@ def calibrate_home():
         encoder_ticks, _ = dome.counter_read()
         if dome.isHome():
             home_detected = True
-        if encoder_ticks >= 20:
+        if encoder_ticks >= 40:
             break
     dome.rotation_stop()
     time.sleep(5)
@@ -159,8 +159,8 @@ def calibrate_home():
     if not home_detected:
         abort()
 
-    # 4) Sweep through home CCW (20 tics), detect home. If not detected, fail.
-    print("Sweeping CCW through home (20 tics)...")
+        # 4) Sweep through home CCW (20 tics), detect home. If not detected, fail.
+        print("Sweeping CCW through home (40 tics)...")
     dome.ccw()
     t0 = time.time()
     start_pos = dome.get_pos()
@@ -170,7 +170,7 @@ def calibrate_home():
         encoder_ticks, _ = dome.counter_read()
         if dome.isHome():
             home_detected = True
-        if encoder_ticks >= 20:
+        if encoder_ticks >= 40:
             break
     dome.rotation_stop()
     time.sleep(5)
@@ -193,7 +193,7 @@ def calibrate_home():
             encoder_ticks, _ = dome.counter_read()
             if dome.isHome():
                 home_detected = True
-            if encoder_ticks >= 20:
+            if encoder_ticks >= 40:
                 break
         dome.rotation_stop()
         time.sleep(5)
@@ -219,7 +219,7 @@ def calibrate_home():
             encoder_ticks, _ = dome.counter_read()
             if dome.isHome():
                 home_detected = True
-            if encoder_ticks >= 20:
+            if encoder_ticks >= 40:
                 break
         dome.rotation_stop()
         time.sleep(5)

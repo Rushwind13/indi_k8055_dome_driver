@@ -184,16 +184,36 @@ def calibrate_home():
 
     # Move dome to average center of both sweeps if possible
     print("\nMoving dome to center of home zone...")
+
+    def ticks_to_degrees(ticks):
+        # Use tick-to-degree conversion from config
+        return dome.HOME_POS + (ticks * dome.DEG_TO_TICKS)
+
     if center_cw is not None and center_ccw is not None:
         final_center = (center_cw + center_ccw) / 2.0
-        print("Moving to tick position: {:.1f}".format(final_center))
-        dome.rotation(final_center)
+        target_degrees = ticks_to_degrees(final_center)
+        print(
+            "Moving to center: {:.1f} tics -> {:.2f} deg".format(
+                final_center, target_degrees
+            )
+        )
+        dome.rotation(target_degrees)
     elif center_cw is not None:
-        print("Moving to tick position (CW center): {:.1f}".format(center_cw))
-        dome.rotation(center_cw)
+        target_degrees = ticks_to_degrees(center_cw)
+        print(
+            "Moving to CW center: {:.1f} tics -> {:.2f} deg".format(
+                center_cw, target_degrees
+            )
+        )
+        dome.rotation(target_degrees)
     elif center_ccw is not None:
-        print("Moving to tick position (CCW center): {:.1f}".format(center_ccw))
-        dome.rotation(center_ccw)
+        target_degrees = ticks_to_degrees(-center_ccw)
+        print(
+            "Moving to CCW center: {:.1f} tics -> {:.2f} deg".format(
+                center_ccw, target_degrees
+            )
+        )
+        dome.rotation(target_degrees)
     else:
         print("Could not determine home zone center; using home().")
         dome.home()

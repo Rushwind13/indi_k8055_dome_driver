@@ -129,57 +129,56 @@ def count_full_rotation(direction):
     )
     save_state(dome, "count_full_rotation_home")
 
-    # Always move away from home before starting the full revolution
-    print("Moving 20 tics away from home before starting full revolution...")
-    move_ticks(
-        dome,
-        "ccw" if direction.lower() == "cw" else "cw",
-        20,
-        "Pre-Rotation Move",
-        detect_home=False,
+    # Start rotation and ignore home until safety tics have elapsed
+    print("Starting full rotation...")
+    if direction.lower() == "cw":
+        dome.cw()
+    else:
+        dome.ccw()
+    t0 = time.time()
+    start_pos = dome.get_pos()
+    start_ticks, _ = dome.counter_read()
+    safety_tics = 20  # Minimum tics before checking for home
+    home_detected = False
+    last_print = start_ticks
+    max_tics = 500  # Safety max
+    while True:
+        encoder_ticks, _ = dome.counter_read()
+        current_pos = dome.current_position()
+        if encoder_ticks - last_print >= 10 or encoder_ticks == start_ticks:
+            telemetry(
+                "Rotating",
+                start_pos,
+                start_ticks,
+                current_pos,
+                encoder_ticks,
+                time.time() - t0,
+            )
+            last_print = encoder_ticks
+        if encoder_ticks >= safety_tics:
+            if dome.isHome():
+                home_detected = True
+                break
+        if encoder_ticks >= max_tics:
+            print("Safety max tics reached, aborting!")
+            break
+        time.sleep(0.1)
+    dome.rotation_stop()
+    time.sleep(1)
+    final_pos = dome.current_position()
+    final_ticks, _ = dome.counter_read()
+    t1 = time.time()
+    telemetry(
+        "Rotating (final)", start_pos, start_ticks, final_pos, final_ticks, t1 - t0
     )
-
-    print("Starting rotation...")
-    home_detected, encoder_ticks = move_ticks(
-        dome,
-        direction.lower(),
-        2000,  # safety max
-        "Rotating",
-        detect_home=True,
-        print_interval=10,
-    )
-    if not home_detected or encoder_ticks <= 10:
+    if not home_detected or final_ticks <= safety_tics:
         print("Home not detected after full revolution!")
         abort()
-    print("\nTotal tics for full revolution: {}".format(encoder_ticks))
+    print("\nTotal tics for full revolution: {}".format(final_ticks))
     save_state(dome, "count_full_rotation")
 
 
 def calibrate_home():
-    import subprocess
-
-    dome = Dome()
-    restore_state(dome)
-
-    def abort():
-        print("Calibration failed. Aborting...")
-        subprocess.call(
-            [
-                sys.executable,
-                os.path.join(os.path.dirname(__file__), "../scripts/abort.py"),
-            ]
-        )
-        sys.exit(1)
-
-    def telemetry(stage, start_pos, start_ticks, end_pos, end_ticks, elapsed):
-        print(
-            "{}: Start pos={:.2f}deg, "
-            "Start tics={}, End pos={:.2f}deg, "
-            "End tics={}, Elapsed={:.2f}s".format(
-                stage, start_pos, start_ticks, end_pos, end_ticks, elapsed
-            )
-        )
-
     # 1) Move to home first. If can't get there, fail.
     print("Moving to home position...")
     t0 = time.time()

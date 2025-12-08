@@ -14,47 +14,6 @@ from config import load_config
 
 
 class Dome:
-    def degrees(self, tics):
-        """
-        Convert encoder tics to degrees, direction-aware.
-        Uses current dome direction (self.dir).
-        """
-        if self.dir == self.CW:
-            deg = float(tics) * self.degrees_per_tic_cw
-        else:
-            deg = float(tics) * self.degrees_per_tic_ccw
-        return deg
-
-    def tics(self, degrees):
-        """
-        Convert degrees to encoder tics, direction-aware.
-        Returns (int, decimal) tuple.
-        """
-        if self.dir == self.CW:
-            tics_float = float(degrees) / self.degrees_per_tic_cw
-        else:
-            tics_float = float(degrees) / self.degrees_per_tic_ccw
-        tics_int = int(tics_float)
-        tics_dec = round(tics_float - tics_int, 2)
-        return (tics_int, tics_dec)
-
-    def current_position(self):
-        """
-        Calculate current position based on
-        last known position, encoder ticks, and direction.
-        Does not reset encoder or update persistent state.
-        """
-        encoder_ticks, _ = self.counter_read()
-        if self.dir == self.CW:
-            pos = (self.position + self.degrees(encoder_ticks)) % 360.0
-        else:
-            pos = (self.position - self.degrees(encoder_ticks)) % 360.0
-        # If home is sensed, set position to HOME_POS
-        # (for safety, but do not reset encoder)
-        if self.isHome():
-            pos = self.HOME_POS
-        return pos
-
     def __init__(self, config_file="dome_config.json"):
         print("Creating new Dome object")
         sys.stdout.flush()
@@ -164,6 +123,47 @@ class Dome:
         self.dome = pyk8055_wrapper.device(port=device_port, mock=mock_mode)
         print("done.")
         sys.stdout.flush()
+
+    def degrees(self, tics):
+        """
+        Convert encoder tics to degrees, direction-aware.
+        Uses current dome direction (self.dir).
+        """
+        if self.dir == self.CW:
+            deg = float(tics) * self.degrees_per_tic_cw
+        else:
+            deg = float(tics) * self.degrees_per_tic_ccw
+        return deg
+
+    def tics(self, degrees):
+        """
+        Convert degrees to encoder tics, direction-aware.
+        Returns (int, decimal) tuple.
+        """
+        if self.dir == self.CW:
+            tics_float = float(degrees) / self.degrees_per_tic_cw
+        else:
+            tics_float = float(degrees) / self.degrees_per_tic_ccw
+        tics_int = int(tics_float)
+        tics_dec = round(tics_float - tics_int, 2)
+        return (tics_int, tics_dec)
+
+    def current_position(self):
+        """
+        Calculate current position based on
+        last known position, encoder ticks, and direction.
+        Does not reset encoder or update persistent state.
+        """
+        encoder_ticks, _ = self.counter_read()
+        if self.dir == self.CW:
+            pos = (self.position + self.degrees(encoder_ticks)) % 360.0
+        else:
+            pos = (self.position - self.degrees(encoder_ticks)) % 360.0
+        # If home is sensed, set position to HOME_POS
+        # (for safety, but do not reset encoder)
+        if self.isHome():
+            pos = self.HOME_POS
+        return pos
 
     def direction_str(self):
         """

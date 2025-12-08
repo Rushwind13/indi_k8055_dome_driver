@@ -96,7 +96,7 @@ def move_ticks(dome, direction, ticks, label, detect_home=False, print_interval=
         cardinal = int(round(current_pos / 45.0)) * 45 % 360
         # Only print if within 1 degree of
         # the cardinal point to avoid missing due to rounding
-        if abs((current_pos - cardinal) % 360.0) < 1.0:
+        if abs((current_pos - cardinal) % 360.0) < dome.degrees(1):
             if last_cardinal != cardinal:
                 now = time.time()
                 telemetry(
@@ -187,7 +187,7 @@ def count_full_rotation(direction):
         encoder_ticks, _ = dome.counter_read()
         current_pos = dome.current_position()
         cardinal = int(round(current_pos / 45.0)) * 45 % 360
-        if abs((current_pos - cardinal) % 360.0) < 1.0:
+        if abs((current_pos - cardinal) % 360.0) < dome.degrees(1):
             if last_cardinal != cardinal:
                 now = time.time()
                 telemetry(

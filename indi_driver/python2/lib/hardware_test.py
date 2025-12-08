@@ -38,12 +38,12 @@ def abort():
     sys.exit(1)
 
 
-def telemetry(stage, start_pos, start_ticks, end_pos, end_ticks, elapsed):
+def telemetry(stage, start_pos, start_ticks, end_pos, end_ticks, split, elapsed):
     print(
-        "{}: Start pos={:.2f}deg, "
-        "Start tics={}, Cur pos={:.2f}deg, "
-        "Cur tics={}, Elapsed={:.2f}s".format(
-            stage, start_pos, start_ticks, end_pos, end_ticks, elapsed
+        "{}: From={:.2f}deg, Cur={:.2f}deg, "
+        "Start tics={}, "
+        "Cur tics={}, Split={:.2f}s, Total={:.2f}s".format(
+            stage, start_pos, end_pos, start_ticks, end_ticks, split, elapsed
         )
     )
 
@@ -57,22 +57,28 @@ def move_ticks(dome, direction, ticks, label, detect_home=False, print_interval=
     start_pos = dome.get_pos()
     start_ticks, _ = dome.counter_read()
     home_detected = False
+    last_cardinal_time = t0
+    last_cardinal = None
     while True:
         encoder_ticks, _ = dome.counter_read()
         current_pos = dome.current_position()
-        # Print telemetry every time the dome passes a cardinal 45-degree point
         cardinal = int(round(current_pos / 45.0)) * 45 % 360
         # Only print if within 1 degree of
         # the cardinal point to avoid missing due to rounding
-        if (current_pos - cardinal) % 360.0 < 1.0:
-            telemetry(
-                "{} @ {} deg".format(label, cardinal),
-                start_pos,
-                start_ticks,
-                current_pos,
-                encoder_ticks,
-                time.time() - t0,
-            )
+        if abs((current_pos - cardinal) % 360.0) < 1.0:
+            if last_cardinal != cardinal:
+                now = time.time()
+                telemetry(
+                    "{} @ {} deg ".format(label, cardinal),
+                    start_pos,
+                    start_ticks,
+                    current_pos,
+                    encoder_ticks,
+                    now - last_cardinal_time,
+                    now - t0,
+                )
+                last_cardinal_time = now
+                last_cardinal = cardinal
         if detect_home and dome.isHome():
             home_detected = True
             break
@@ -139,22 +145,25 @@ def count_full_rotation(direction):
     safety_tics = 20  # Minimum tics before checking for home
     home_detected = False
     max_tics = 500  # Safety max
+    last_cardinal_time = t0
     last_cardinal = None
     while True:
         encoder_ticks, _ = dome.counter_read()
         current_pos = dome.current_position()
-        # Print telemetry every time the dome passes a cardinal 45-degree point
         cardinal = int(round(current_pos / 45.0)) * 45 % 360
         if abs((current_pos - cardinal) % 360.0) < 1.0:
             if last_cardinal != cardinal:
+                now = time.time()
                 telemetry(
-                    "Rotating @ {} deg".format(cardinal),
+                    "Rotating @ {} deg ".format(cardinal),
                     start_pos,
                     start_ticks,
                     current_pos,
                     encoder_ticks,
-                    time.time() - t0,
+                    now - last_cardinal_time,
+                    now - t0,
                 )
+                last_cardinal_time = now
                 last_cardinal = cardinal
         if encoder_ticks >= safety_tics:
             if dome.isHome():

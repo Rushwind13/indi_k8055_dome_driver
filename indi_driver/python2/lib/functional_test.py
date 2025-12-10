@@ -27,9 +27,16 @@ GOTO_SCRIPT = os.path.join(os.path.dirname(__file__), "../../scripts/goto.py")
 
 
 # Helper to run goto.py and wait for completion
+
+
 def run_goto(azimuth):
+    lib_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "lib"))
+    env = os.environ.copy()
+    env["PYTHONPATH"] = lib_dir + (
+        os.pathsep + env["PYTHONPATH"] if "PYTHONPATH" in env else ""
+    )
     cmd = [sys.executable, GOTO_SCRIPT, str(azimuth)]
-    result = subprocess.call(cmd)
+    result = subprocess.call(cmd, env=env)
     return result == 0
 
 

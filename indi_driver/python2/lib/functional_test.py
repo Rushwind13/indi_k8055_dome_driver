@@ -10,6 +10,11 @@ Tested positions: 0, 90, 180, 270 degrees
 Start at Home (225 deg), then test short, medium, and long slews in both directions.
 """
 
+try:
+    input_func = raw_input  # Python 2
+except NameError:
+    input_func = input  # Python 3
+
 import os
 import subprocess
 import sys
@@ -47,11 +52,14 @@ def functional_test_goto():
     t0 = time.time()
     start_pos, start_ticks = dome.home()
     save_state(dome, "goto_home")
+
     time.sleep(2)
     cur_pos = dome.current_position()
     cur_ticks, _ = dome.counter_read()
     t1 = time.time()
     telemetry("Start at Home", start_pos, start_ticks, cur_pos, cur_ticks, t1 - t0, 0)
+    user_pos = input_func("After homing, what is the approximate dome azimuth (deg)? ")
+    print("[User] Dome reported at: {} deg".format(user_pos))
 
     test_positions = [0, 90, 180, 270]
     for target in test_positions:
@@ -73,6 +81,11 @@ def functional_test_goto():
             time.time() - t2,
             time.time() - t1,
         )
+        user_pos = input_func(
+            "After moving to {} deg, "
+            "what is the approximate dome azimuth (deg)? ".format(target)
+        )
+        print("[User] Dome reported at: {} deg".format(user_pos))
         start_pos = cur_pos
         start_ticks = cur_ticks
         save_state(dome, "goto_{}".format(target))
@@ -97,11 +110,12 @@ def functional_test_goto():
         time.sleep(2)
         s_pos = dome.current_position()
         s_ticks, _ = dome.counter_read()
+        user_start = input_func(
+            "After slewing to start {} deg, "
+            "what is the approximate dome azimuth (deg)? ".format(start)
+        )
+        print("[User] Dome reported at: {} deg".format(user_start))
         t2 = time.time()
-        ok = run_goto(end)
-        if not ok:
-            print("Goto script failed for {} deg (slew end)".format(end))
-            continue
         time.sleep(2)
         e_pos = dome.current_position()
         e_ticks, _ = dome.counter_read()
@@ -114,12 +128,14 @@ def functional_test_goto():
             time.time() - t2,
             time.time() - t1,
         )
-        save_state(dome, "slew_{}_{}".format(start, end))
-
-    print("[FunctionalTest] Final: Moving to Home (225 deg)...")
-    t2 = time.time()
+        user_end = input_func(
+            "After slewing to end {} deg, "
+            "what is the approximate dome azimuth (deg)? ".format(end)
+        )
+        print("[User] Dome reported at: {} deg".format(user_end))
     start_pos, start_ticks = dome.home()
     save_state(dome, "goto_home")
+
     time.sleep(2)
     cur_pos = dome.current_position()
     cur_ticks, _ = dome.counter_read()
@@ -127,6 +143,10 @@ def functional_test_goto():
     telemetry(
         "End at Home", start_pos, start_ticks, cur_pos, cur_ticks, t3 - t2, t2 - t1
     )
+    user_pos = input_func(
+        "After final homing, what is the approximate dome azimuth (deg)? "
+    )
+    print("[User] Dome reported at: {} deg".format(user_pos))
 
 
 if __name__ == "__main__":

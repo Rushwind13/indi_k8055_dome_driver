@@ -22,10 +22,10 @@ except NameError:
     input_func = input  # Python 3
 
 STATE_FILE = os.path.abspath(
-    os.path.join(os.path.dirname(__file__), "..", "..", "dome_state.json")
+    os.path.join(os.path.dirname(__file__), "..", "dome_state.json")
 )
 GOTO_SCRIPT = os.path.abspath(
-    os.path.join(os.path.dirname(__file__), "..", "..", "scripts", "goto.py")
+    os.path.join(os.path.dirname(__file__), "..", "scripts", "goto.py")
 )
 
 
